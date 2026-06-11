@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Redirecionando…</title>
+<script>
+  // Rotas usam hash (#/...), então qualquer caminho desconhecido
+  // volta para a raiz do livro mantendo o domínio/repo.
+  location.replace(location.pathname.split('/').slice(0,2).join('/') + '/');
+</script>
+</head><body>Redirecionando…</body></html>
