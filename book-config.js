@@ -15,9 +15,9 @@
    ========================================================================= */
 
 const bookConfig = {
-  title: "Programação Windows",
-  subtitle: "Do Win32 ao software moderno",
-  author: "Seu Nome",
+  title: "Windows System Programming for Hackers and Masochists",
+  subtitle: "",
+  author: "Filipe Oliveira",
 
   // (Opcional) só informativo. O site usa caminhos relativos, então
   // funciona em qualquer endereço sem precisar configurar isto.
