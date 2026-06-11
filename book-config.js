@@ -272,3 +272,7 @@ bookConfig.flatPages = (() => {
   });
   return list;
 })();
+
+/* Expõe a configuração globalmente para o book-viewer.js.
+   (Necessário porque 'const' no topo do script NÃO cria window.bookConfig.) */
+window.bookConfig = bookConfig;

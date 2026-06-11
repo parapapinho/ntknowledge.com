@@ -9,6 +9,18 @@
   "use strict";
 
   const cfg = window.bookConfig;
+  if (!cfg || !cfg.flatPages) {
+    var c = document.getElementById("content");
+    if (c) {
+      c.innerHTML =
+        '<div class="state"><h2 style="font-family:var(--font-display);color:var(--ink)">' +
+        "Não consegui carregar a configuração do livro</h2>" +
+        "<p>O arquivo <code>book-config.js</code> não foi encontrado ou não definiu " +
+        "<code>bookConfig</code>. Verifique se ele está na mesma pasta e é carregado " +
+        "<strong>antes</strong> de <code>book-viewer.js</code>.</p></div>";
+    }
+    return;
+  }
   const pages = cfg.flatPages;
 
   // Caminho RELATIVO ao index.html. Assim funciona igual em:
@@ -265,6 +277,12 @@ http://localhost:8000</pre>`
   }
 
   // ---- inicialização ----------------------------------------------------
+  // Sincroniza o cabeçalho com o título/subtítulo definidos no book-config.js
+  const brand = document.getElementById("brandTitle");
+  if (brand) {
+    brand.innerHTML = cfg.title + (cfg.subtitle ? "<small>" + cfg.subtitle + "</small>" : "");
+  }
+
   initTheme();
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   buildSidebar();
