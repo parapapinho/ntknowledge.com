@@ -3,66 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Programação Windows — Do Win32 ao software moderno</title>
-  <meta name="description" content="Um livro digital sobre programação Windows: API Win32, janelas, mensagens e software moderno." />
-
-  <!-- Tipografia -->
+  <title>NT Knowledge — Blog</title>
+  <meta name="description" content="Artigos e anotações sobre Windows, engenharia reversa e pesquisa em segurança." />
+  <script>
+    try {
+      const theme = localStorage.getItem('tema');
+      document.documentElement.classList.toggle('dark', theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches));
+    } catch (_) { document.documentElement.classList.toggle('dark', matchMedia('(prefers-color-scheme: dark)').matches); }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
-  <!-- Destaque de sintaxe (Prism) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
   <div class="app">
-
-    <!-- Cabeçalho -->
     <header class="topbar">
-      <button id="menuToggle" class="iconbtn" aria-label="Abrir índice">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-      </button>
-      <a class="topbar__brand" href="#/">
-        <span class="topbar__mark"><span></span><span></span><span></span><span></span></span>
-        <span class="topbar__title" id="brandTitle">Programação Windows<small>Do Win32 ao software moderno</small></span>
-      </a>
-      <span class="topbar__spacer"></span>
-      <button id="themeToggle" class="iconbtn" aria-label="Alternar modo claro/escuro">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
-      </button>
+      <div class="topbar__inner">
+        <a class="topbar__brand" href="#/" aria-label="NT Knowledge — início">
+          <span class="logo__mark" aria-hidden="true">&gt;</span>
+          <span id="brandTitle">ntknowledge</span>
+          <span class="logo__cursor" aria-hidden="true"></span>
+        </a>
+        <nav class="topbar__nav" aria-label="Navegação principal">
+          <a href="#/blog" data-nav="blog">Blog</a>
+          <a href="#/contact" data-nav="contact">Contact</a>
+          <a href="#/cv" data-nav="cv">CV</a>
+          <button id="themeToggle" class="iconbtn" aria-label="Alternar modo claro/escuro" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 010 16z" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </nav>
+      </div>
     </header>
-
-    <!-- Índice lateral -->
-    <aside class="sidebar" id="sidebar">
-      <div class="search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-        <input id="searchInput" type="text" placeholder="Buscar no índice…" />
-      </div>
-      <nav id="toc"></nav>
-    </aside>
-
-    <!-- Conteúdo -->
-    <main class="main">
+    <main class="main" id="main" tabindex="-1">
       <div class="reader">
-        <div class="crumbs" id="crumbs"></div>
-        <article class="content" id="content"></article>
-        <nav class="pager" id="pager"></nav>
+        <article class="content" id="content" aria-busy="true"><p class="state" role="status">Carregando…</p></article>
       </div>
-      <aside class="onthispage" id="onthispage"></aside>
     </main>
-
-    <div class="scrim" id="scrim"></div>
+    <footer class="footer"><span>NT Knowledge</span><span><a href="LICENSE">CC0 1.0</a></span><span><a href="https://github.com/parapapinho/ntknowledge.com">Código no GitHub</a></span></footer>
   </div>
-
-  <!-- Markdown + destaque de código -->
+  <noscript><p class="state">Ative o JavaScript para navegar pelo blog. Você também pode acessar o <a href="https://github.com/parapapinho/ntknowledge.com">GitHub</a>.</p></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
-
-  <!-- Livro -->
-  <script src="book-config.js"></script>
-  <script src="book-viewer.js"></script>
+  <script src="site-config.js"></script>
+  <script src="site.js"></script>
 </body>
 </html>

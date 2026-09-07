@@ -1,143 +1,55 @@
-# Livro digital — modelo de site
+# NT Knowledge — blog pessoal
 
-Um modelo pronto para escrever um livro digital (no estilo daquele site que você mandou): índice lateral, navegação entre páginas, busca, modo claro/escuro, destaque de código e menu "Nesta página". Você escreve em **Markdown** e o site monta tudo sozinho.
+Site estático com os menus **Blog**, **Contact** e **CV**, inspirado no visual de xusheng.dev. Inclui um único post de teste e modo claro/escuro. Não exige Hugo nem compilação.
 
----
+## Ver no computador
 
-## 1. Ver o site no seu computador
-
-Os capítulos são arquivos `.md` que o site carrega na hora. Por segurança, o navegador **não** deixa ler esses arquivos se você abrir o `index.html` com dois cliques (`file://`). Então rode um servidor local — é um comando só.
-
-Com o **Python** instalado, abra o terminal na pasta do projeto e rode:
+Na pasta do projeto:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Depois abra no navegador:
+Abra `http://localhost:8000`. Não abra `index.html` com dois cliques: o carregamento de Markdown precisa de um servidor HTTP.
 
-```
-http://localhost:8000
-```
+## Escrever um post
 
-Pronto. Toda vez que quiser ver o livro, é esse comando.
-
-> Não tem Python? Outra opção, se tiver Node.js: `npx serve` na pasta do projeto.
-
----
-
-## 2. Estrutura dos arquivos
-
-```
-livro-windows/
-├── index.html          → a página (não precisa mexer)
-├── styles.css          → cores e fontes (mexa só se quiser mudar a aparência)
-├── book-config.js      → AQUI você define os capítulos
-├── book-viewer.js      → o motor do site (não precisa mexer)
-├── LEIA-ME.md          → este guia
-└── conteudo/           → AQUI ficam seus textos (.md)
-    ├── inicio/
-    │   ├── bem-vindo.md
-    │   └── guia-de-formatacao.md
-    └── parte-1/
-        └── cap-1-introducao/
-            └── modelo-de-capitulo.md
-```
-
-Você só mexe em **dois lugares**: a pasta `conteudo/` (seus textos) e o `book-config.js` (a lista de capítulos).
-
----
-
-## 3. Adicionar uma página nova
-
-São dois passos:
-
-**Passo 1 — crie o arquivo.** Por exemplo, crie:
-
-```
-conteudo/parte-1/cap-1-introducao/o-que-e-win32.md
-```
-
-e escreva nele em Markdown (veja a página "Guia de formatação" no site para a sintaxe).
-
-**Passo 2 — cadastre no `book-config.js`.** Encontre o capítulo certo e adicione uma linha em `pages`:
+1. Crie um arquivo em `posts/`, por exemplo `posts/meu-primeiro-artigo.md`.
+2. Escreva o texto em Markdown. O título principal e a data são mostrados automaticamente; comece o arquivo pelo texto do artigo.
+3. Acrescente uma entrada na lista `posts` de `site-config.js`:
 
 ```js
 {
-  title: "Introdução à programação Windows",
-  pages: [
-    { title: "Modelo de capítulo", path: "parte-1/cap-1-introducao/modelo-de-capitulo.md" },
-    { title: "O que é a API Win32", path: "parte-1/cap-1-introducao/o-que-e-win32.md" },  // ← nova
-  ]
-},
+  title: "Meu primeiro artigo",
+  slug: "meu-primeiro-artigo",
+  date: "2026-09-07",
+  path: "posts/meu-primeiro-artigo.md"
+}
 ```
 
-Recarregue a página. A nova página aparece no índice lateral.
+Separe as entradas com vírgulas. Use um slug único com letras minúsculas, números e hífens, e uma data válida no formato `AAAA-MM-DD`. Os artigos aparecem do mais recente para o mais antigo. Para remover o teste, retire sua entrada da lista e remova `posts/post-de-teste.md`.
 
-> O `title` é o que aparece no menu. O `path` é o caminho do arquivo **a partir de** `conteudo/`.
+Use somente Markdown e HTML de sua autoria ou de uma fonte confiável: o renderizador aceita HTML dentro dos posts.
 
----
+## Contact e CV
 
-## 4. Adicionar um capítulo ou uma parte
+Edite `site-config.js`:
 
-No `book-config.js`:
+- `github`: endereço público do seu perfil.
+- `email`: seu e-mail público. Vazio, não aparece no site.
+- `cvUrl`: caminho para seu currículo, por exemplo `assets/cv.pdf`. Adicione o PDF nesse caminho. Enquanto o campo estiver vazio, a página mostra “Currículo em breve”.
 
-- **Novo capítulo:** copie um bloco inteiro `{ title: "...", pages: [...] }` e troque os textos.
-- **Nova parte:** copie um bloco inteiro `{ part: "...", chapters: [...] }`.
+Não há formulário de contato nem currículo fictício.
 
-A numeração dos capítulos no índice é automática.
+## Aparência
 
----
+- `index.html`: cabeçalho, menus e rodapé.
+- `styles.css`: cores, fontes e espaçamento.
+- `site-config.js`: título, descrição, contato, currículo e lista de posts.
+- `site.js`: navegação e renderização.
 
-## 5. Mudar título, autor e aparência
+Os antigos arquivos em `conteudo/` foram preservados como fonte, mas não fazem parte da navegação nem são carregados pelo blog.
 
-- **Título e autor do livro:** no começo do `book-config.js` (campos `title`, `subtitle`, `author`).
-- **Título no topo da página:** no `index.html`, dentro do elemento com `id="brandTitle"`.
-- **Cores e fontes:** no topo do `styles.css`, na seção `:root` (modo claro) e `html.dark` (modo escuro). Os nomes das cores são autoexplicativos (`--accent` é a cor de destaque, `--paper` é o fundo, etc.).
+## GitHub Pages
 
----
-
-## 6. Publicar de graça no GitHub Pages
-
-Você tem três formatos de endereço possíveis:
-
-**a) Site de projeto** — `https://seu-usuario.github.io/livro-windows/`
-   O mais simples. Crie um repositório com o nome que quiser (ex.: `livro-windows`),
-   envie os arquivos, e em **Settings → Pages** escolha a branch `main` e a pasta `/ (root)`.
-
-**b) Site de usuário** — `https://seu-usuario.github.io/`
-   URL mais limpa, sem subpasta. Para isso o repositório precisa se chamar
-   **exatamente** `seu-usuario.github.io`. Você só pode ter **um** site assim por conta.
-
-**c) Domínio próprio** — `https://meulivro.com.br/`
-   Você compra um domínio e aponta para o GitHub Pages em **Settings → Pages →
-   Custom domain**. Tem o melhor visual, mas custa o preço do domínio.
-
-> [!NOTA]
-> Este modelo usa caminhos relativos, então **funciona nos três casos sem mexer em nada**.
-> Não precisa fazer o `repo` "bater" com nada — é só publicar.
-
-> O arquivo `.nojekyll` já vem incluído — ele evita um problema comum do GitHub Pages com pastas. Não apague.
-
----
-
-## 7. Recursos extras de formatação
-
-Além do Markdown comum, este modelo tem **caixas de destaque**. Comece uma citação com uma destas marcações:
-
-```markdown
-> [!NOTA]
-> Uma observação importante.
-
-> [!AVISO]
-> Um alerta sobre um erro comum.
-
-> [!DICA]
-> Uma sugestão prática.
-```
-
-A página "Guia de formatação" (já incluída) mostra todos os recursos com exemplos prontos para copiar.
-
----
-
-Bom livro! Quando tiver os primeiros capítulos, é só ir cadastrando no `book-config.js`.
+Publique os arquivos na raiz do repositório, mantendo o `CNAME` existente. As rotas usam hash (`#/blog`, `#/contact`, `#/cv`), portanto funcionam no domínio próprio e no GitHub Pages sem configuração de rotas no servidor. A fonte Inter e as bibliotecas de Markdown e destaque de código são carregadas por CDN.
