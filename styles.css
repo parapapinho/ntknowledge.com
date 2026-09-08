@@ -33,8 +33,6 @@ button { cursor: pointer; }
 .topbar__inner { width: var(--reading-w); max-width: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .topbar__brand { display: inline-flex; align-items: center; text-decoration: none; font-family: var(--font-mono); font-weight: 700; font-size: 1.125rem; white-space: nowrap; }
 .logo__mark { margin-right: .5rem; font-size: 1.25rem; }
-.logo__cursor { width: 10px; height: 1rem; margin-left: 6px; border-radius: 1px; background: #fe5186; animation: cursor 1s step-end infinite; }
-@keyframes cursor { 50% { opacity: 0; } }
 .topbar__nav { display: flex; align-items: center; gap: 1.5rem; }
 .topbar__nav a, .nav-button { text-decoration: none; font-size: 1rem; }
 .nav-button { border: 0; padding: 0; color: inherit; background: none; }
@@ -93,7 +91,7 @@ button { cursor: pointer; }
   .home-intro { margin-bottom: 2rem; }
   .footer { font-size: .875rem; }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .logo__cursor { animation: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 @media print { .topbar, .footer { display: none; } .reader { width: 100%; padding: 0; } body { background: white; color: black; } }
 
 .topbar__nav a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .4rem; }
