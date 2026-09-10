@@ -53,10 +53,20 @@
   function contact() {
     const links = [];
     if (cfg.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cfg.email)) {
-      links.push(`<li>E-mail: <a href="mailto:${escapeHTML(cfg.email)}">${escapeHTML(cfg.email)}</a></li>`);
+      links.push(`<li>Email: <a href="mailto:${escapeHTML(cfg.email)}">${escapeHTML(cfg.email)}</a></li>`);
+    }
+    if (cfg.x && safeURL(cfg.x)) links.push(`<li>X (Twitter): <a href="${safeURL(cfg.x)}">${escapeHTML(cfg.x.replace(/^https?:\/\//, ""))}</a></li>`);
+    if (cfg.discord) {
+      // Discord profile links use numeric IDs; show a supplied username as text.
+      const profile = cfg.discord.match(/^https:\/\/(?:www\.)?discord\.com\/users\/([^/?#]+)\/?$/i);
+      if (profile && !/^\d+$/.test(profile[1])) {
+        links.push(`<li>Discord: <span>${escapeHTML(profile[1])}</span></li>`);
+      } else if (safeURL(cfg.discord)) {
+        links.push(`<li>Discord: <a href="${safeURL(cfg.discord)}">${escapeHTML(cfg.discord.replace(/^https?:\/\//, ""))}</a></li>`);
+      }
     }
     if (cfg.github && safeURL(cfg.github)) links.push(`<li>GitHub: <a href="${safeURL(cfg.github)}">${escapeHTML(cfg.github.replace(/^https?:\/\//, ""))}</a></li>`);
-    return `<h1>Contact</h1>${links.length ? `<ul class="contact-links">${links.join("")}</ul>` : "<p>Informações de contato em breve.</p>"}`;
+    return `<h1>Contact</h1>${links.length ? `<ul class="contact-links">${links.join("")}</ul>` : "<p>Contact details coming soon.</p>"}`;
   }
 
   function cv() {
