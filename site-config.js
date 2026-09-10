@@ -4,7 +4,7 @@ window.siteConfig = {
   description: "Reversing engineering, Windows and Vulnerability Research.",
   github: "https://github.com/parapapinho",
   email: "", // Preencha com seu e-mail público quando quiser exibi-lo.
-  cvUrl: "", // Ex.: "assets/cv.pdf", depois de adicionar seu currículo.
+  cvUrl: "assets/cv.pdf",
   posts: [
     {
       title: "Post de teste",
