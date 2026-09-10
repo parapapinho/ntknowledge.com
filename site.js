@@ -60,7 +60,7 @@
   }
 
   function cv() {
-    return `<h1>CV</h1>${cfg.cvUrl && safeURL(cfg.cvUrl) ? `<p><a href="${safeURL(cfg.cvUrl)}">Abrir currículo</a></p>` : "<p>Currículo em breve.</p>"}`;
+    return `<h1>CV</h1>${cfg.cvUrl && safeURL(cfg.cvUrl) ? `<p><a href="${safeURL(cfg.cvUrl)}">View CV</a></p>` : "<p>Currículo em breve.</p>"}`;
   }
 
   function notFound() {
