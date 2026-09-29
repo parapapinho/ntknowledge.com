@@ -59,7 +59,7 @@ These were the values captured during that debugging session:
 
 ```text
 RIP         = 0x7FF62A4210B6
-Context.Dr0 = 0x7FF62A42216
+Context.Dr0 = 0x7FF62A42216E
 Context.Dr1 = 0x0000000000000000
 Context.Dr2 = 0x0000000000000000
 Context.Dr3 = 0x0000000000000000
@@ -79,6 +79,10 @@ This was more specific than finding a nonzero address in a disabled slot. The sn
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp5.png)
 >
 > *Context.Dr0 points to the instruction after the call, and Context.Dr7 has L0 set.*
+>
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp10.png)
+>
+>  *Context.Dr7 has L0 set.*
 
 There was also an easy return-value trap here. At this point, `EAX = 1` was the return value of `GetThreadContext`: the API had reported success. It was not yet the anti-debug function's return value.
 
