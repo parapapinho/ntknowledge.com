@@ -89,9 +89,9 @@ I had not manually configured that hardware breakpoint. It was part of the debug
 
 That explained why inspecting only my configured breakpoint list had been misleading.
 
-> **[IMAGE 4 — Insert Debugger → Debugger options with Use hardware temporary breakpoints enabled.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp1.png)
 >
-> *Suggested caption: This option allows IDA to use temporary hardware breakpoints when stepping over calls.*
+> *This option allows IDA to use temporary hardware breakpoints when stepping over calls.*
 
 ## Changing one setting
 
