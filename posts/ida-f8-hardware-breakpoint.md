@@ -1,5 +1,3 @@
-# The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check
-
 While debugging a Windows x64 challenge in IDA, I encountered a small function that checked for hardware breakpoints. It returned `true`, and the program printed a message saying that hardware breakpoints had been detected.
 
 That did not match what I thought I had configured. I checked the breakpoint list: all five entries were software breakpoints.
