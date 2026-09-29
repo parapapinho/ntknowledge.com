@@ -39,9 +39,9 @@ BOOL any_slot_enabled = (ctx.Dr7 & 0xFFULL) != 0;
 
 In my captured snapshot, `DR7` was `0x501`. Applying the mask gives `0x501 & 0xFF = 0x01`: only `L0` is set, so slot 0 is enabled. The other set bits lie outside the enable mask. This also explains why testing `Dr7 != 0` alone is insufficient.
 
-![DR7 enable bits and the 0x501 example](/assets/images/ida-f8/hbp8.png)
-
-*Masking the captured DR7 with 0xFF isolates the slot enable bits; the result identifies L0.*
+> ![DR7 enable bits and the 0x501 example](/assets/images/ida-f8/hbp8.png)
+>
+> *Masking the captured DR7 with 0xFF isolates the slot enable bits; the result identifies L0.*
 
 Second, this function queries its own running thread. Microsoft documents that calling `GetThreadContext` for the current thread can succeed while returning an invalid context. The code above reproduces the challenge's implementation; it should not be treated as a reliable, portable detector. [GetThreadContext documentation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadcontext)
 
