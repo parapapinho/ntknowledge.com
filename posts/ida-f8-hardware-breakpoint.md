@@ -101,9 +101,9 @@ That comparison connected the result to the debugger option. The function was ob
 
 Repeating the call matters. Once `GetThreadContext` has copied values into a `CONTEXT` structure, that structure is a snapshot. Changing the debugger setting afterward does not rewrite the data already captured by the program.
 
-> **[IMAGE 5 — Insert an enabled-versus-disabled comparison from fresh executions of the original challenge. Include the captured Dr0–Dr3 values, Dr7, and the check's final result.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp6.png)
 >
-> *Suggested caption: Repeating the same operation with temporary hardware breakpoints disabled removed the observed trigger.*
+> Repeating the same operation with temporary hardware breakpoints disabled removed the observed trigger.*
 
 ## Reproducing the observation
 
