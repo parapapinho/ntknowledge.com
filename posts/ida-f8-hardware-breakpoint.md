@@ -96,17 +96,7 @@ Hex-Rays introduced Use hardware temporary breakpoints in IDA 6.4 with the optio
 
 When enabled, IDA attempts to use hardware breakpoints for temporary stops used by **Step Over** and **Run to**. It can fall back to software breakpoints if the hardware attempt fails. This behavior is explicitly described in the [Hex-Rays debugger options documentation](https://docs.hex-rays.com/9.0/user-guide/user-interface/menu-bar/debugger/debugger-options).
 
-For the call I was stepping over, the sequence was:
-
-1. I pressed F8 on the call to `GetThreadContext`.
-2. IDA used a temporary hardware breakpoint at the following instruction.
-3. The context returned during the call contained that breakpoint's address and enable bit.
-4. Execution stopped at the temporary breakpoint.
-5. The anti-debug code inspected the saved context and found the nonzero `Dr0`.
-
-I had not manually configured that hardware breakpoint. It was part of the debugger's implementation of the step operation.
-
-That explained why inspecting only my configured breakpoint list had been misleading.
+I had not manually configured that hardware breakpoint. It was part of the debugger's implementation of the step operation. That explained why inspecting only my configured breakpoint list had been misleading.
 
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp1.png)
 >
