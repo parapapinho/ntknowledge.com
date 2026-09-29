@@ -111,28 +111,18 @@ I prepared a small C example, `ida_f8_hbp_demo.c`, that captures and prints the 
 
 The example deliberately retains the same current-thread query, including its documented limitation. It does not set or clear breakpoints itself.
 
-Build it for Windows x64 with optimizations disabled and debug symbols enabled. The supplied `build.cmd` uses MSVC and produces an EXE, a PDB, and a MAP file.
-
 The procedure is:
 
 1. Run the EXE normally and save that observation as a baseline.
 2. Open it in IDA, load its PDB, and select the local Windows debugger.
 3. Set a software breakpoint at `capture_debug_registers`. Leave the hardware slots free for this experiment.
 4. Enable **Use hardware temporary breakpoints**.
-5. Stop on the assembly `call` that invokes `GetThreadContext`, then press F8 on that specific instruction.
+5. Stop on the `call` that invokes `GetThreadContext`, then press F8 on that specific instruction.
 6. Compare the current instruction address with `g_context.Dr0–Dr3` and inspect `g_context.Dr7`.
 7. Disable the option, restart, and repeat the same sequence.
 
 Stepping over the outer call to `capture_debug_registers` would select a different return address, so the exact instruction matters.
 
 In the supplied build, the API call is at RVA `0x1039`, and the following instruction is at RVA `0x103F`. These offsets can change after recompilation. ASLR can also change the image base between runs, so compare each address against the corresponding instruction in that execution.
-
-The new example compiled without warnings and, when run without a debugger, captured zeroes in `Dr0–Dr3` and `Dr7`. The enabled-versus-disabled result described earlier belongs to the original challenge; the standalone example provides a way to repeat the experiment and record the behavior on another setup.
-
-> **[IMAGE 6 — Insert the standalone example's console output and, after reproducing it, a capture of g_context in IDA. Label which run each image represents.]**
->
-> *Suggested caption: The demo reports the captured addresses and enable bits separately.*
-
-Record the IDA version, debugger backend, and Windows version/build when reproducing this. The available hardware slots, debugger settings, and the unsupported current-thread query all affect how broadly the observation can be generalized.
 
 What made this case memorable was the exact address match: the breakpoint the program reported was the one the debugger used to bring control back to me. Pressing F8 to investigate the check had introduced the state that made the check succeed.
