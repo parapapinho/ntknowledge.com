@@ -1,6 +1,6 @@
 While debugging a Windows x64 challenge in IDA, I encountered a small function that checked for hardware breakpoints. It returned `true`, and the program printed a message saying that hardware breakpoints had been detected.
 
-That did not match what I thought I had configured. I checked the breakpoint list: all two entries were software breakpoints.
+That did not match what I thought I had configured. I checked the breakpoint list: both entries were software breakpoints.
 
 My first suspicion was a bug in the detection routine. What eventually explained the result was an IDA setting—and a temporary hardware breakpoint created when I pressed F8.
 
