@@ -103,7 +103,7 @@ Repeating the call matters. Once `GetThreadContext` has copied values into a `CO
 
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp6.png)
 >
-> Repeating the same operation with temporary hardware breakpoints disabled removed the observed trigger.*
+> *Repeating the same operation with temporary hardware breakpoints disabled removed the observed trigger.*
 
 ## Reproducing the observation
 
