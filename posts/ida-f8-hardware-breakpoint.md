@@ -34,9 +34,9 @@ Second, this function queries its own running thread. Microsoft documents that c
 
 Those limitations made it especially useful to inspect the actual values behind the result.
 
-> **[IMAGE 2 — Insert IDA's breakpoint list, showing the five software breakpoints and their types.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp4.png)
 >
-> *Suggested caption: The breakpoints I had configured were all software breakpoints.*
+> *The breakpoints I had configured were all software breakpoints.*
 
 ## The address that explained it
 
