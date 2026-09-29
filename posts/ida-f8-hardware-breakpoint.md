@@ -128,12 +128,6 @@ Repeating the call matters. Once `GetThreadContext` has copied values into a `CO
 
 The [C example on GitHub](https://github.com/parapapinho/ntknowledge.com/blob/main/assets/ida_f8_hbp_demo.c) captures and prints the debug-register fields. It also reports the address-only check and the `Dr7` enable mask separately.
 
-Build it from an **x64 Native Tools Command Prompt for Visual Studio**, with optimizations disabled and debug information enabled:
-
-```bat
-cl /nologo /TC /std:c17 /Od /Ob0 /Zi ida_f8_hbp_demo.c /link /DEBUG /INCREMENTAL:NO
-```
-
 The example retains the challenge's current-thread use of `GetThreadContext`, including the documented limitation discussed earlier. The following steps describe how I reproduced the behavior in my debugging session.
 
 1. **Record a baseline.** Run the EXE outside IDA and save its output for comparison.
