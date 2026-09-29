@@ -60,7 +60,7 @@ In my test, stepping over `capture_debug_registers()` did not reproduce the resu
 
 This detail matters because Step Over needs a stopping point immediately after the specific call being stepped over. Here, that stopping point was the instruction following the call to `GetThreadContext`.
 
-> **[IMAGE 1 — Insert a screenshot of the call to GetThreadContext inside capture_debug_registers(). Highlight the instruction immediately after the API call as the Step Over destination.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp12.png)
 >
 > *F8 is applied directly to the GetThreadContext call. The following instruction is where IDA will stop when the API returns.*
 
