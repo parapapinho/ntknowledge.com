@@ -87,7 +87,7 @@ The order of events explains how the temporary breakpoint became visible to the 
 
 `GetThreadContext` reports success separately through its return value. The breakpoint address is part of the data written to `g_context`, and those fields retain their captured values even after IDA removes the temporary breakpoint.
 
-The later check could therefore find a nonzero `Dr0` value introduced by the debugger's own Step Over operation, even though I had configured only software breakpoints myself.
+The later check could therefore find a nonzero `Dr0` value introduced by the debugger's own Step Over operation, even though I had configured only software breakpoints myself. In the original challenge, disabling Use hardware temporary breakpoints and repeating the test removed the unexpected detection.
 
 
 ## What F8 was doing
