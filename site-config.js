@@ -9,10 +9,10 @@ window.siteConfig = {
   cvUrl: "assets/cv.pdf",
   posts: [
     {
-      title: "Post de teste",
+      title: "The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check",
       slug: "post-de-teste",
-      date: "2026-09-07",
-      path: "posts/post-de-teste.md"
+      date: "2026-09-29",
+      path: "posts/The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check.md"
     }
   ]
 };
