@@ -141,3 +141,5 @@ The procedure is:
 Stepping over the outer call to `capture_debug_registers` would select a different return address, so the exact instruction matters.
 
 What made this case memorable was the exact address match: the breakpoint the program reported was the one the debugger used to bring control back to me. Pressing F8 to investigate the check had introduced the state that made the check succeed.
+
+The source code for this example is available on GitHub: [ida_f8_hbp_demo.c](https://github.com/parapapinho/ntknowledge.com/blob/main/assets/ida_f8_hbp_demo.c).
