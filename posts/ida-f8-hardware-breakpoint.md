@@ -28,7 +28,20 @@ BOOL check_hw_breakpoints(void)
 
 There are two limitations worth identifying before interpreting the result.
 
-First, the function only checks whether `Dr0–Dr3` contain nonzero addresses. Whether the corresponding slots are enabled is controlled by `Dr7`. Its lowest eight bits contain the local and global enable bits for the four slots. An address alone does not establish that a slot is enabled. [Intel Software Developer's Manual, Volume 3B](https://cdrdv2-public.intel.com/671427/253669-sdm-vol-3b.pdf)
+First, a nonzero value in `Dr0–Dr3` only gives an address. Slot enablement is controlled by `DR7`: each slot `n` has a local enable bit `Ln` at position `2n` and a global enable bit `Gn` at position `2n + 1`. Either bit enables that slot. [Intel Software Developer's Manual, Volume 3B, Section 18.2.4](https://cdrdv2-public.intel.com/671427/253669-sdm-vol-3b.pdf#page=148)
+
+The following expressions inspect the enable bits in a captured context, with `n` restricted to `0–3`:
+
+```c
+BOOL slot_enabled = (ctx.Dr7 & (0x3ULL << (2 * n))) != 0;
+BOOL any_slot_enabled = (ctx.Dr7 & 0xFFULL) != 0;
+```
+
+In my captured snapshot, `DR7` was `0x501`. Applying the mask gives `0x501 & 0xFF = 0x01`: only `L0` is set, so slot 0 is enabled. The other set bits lie outside the enable mask. This also explains why testing `Dr7 != 0` alone is insufficient.
+
+![DR7 enable bits and the 0x501 example](/assets/images/ida-f8/hbp8.png)
+
+*Masking the captured DR7 with 0xFF isolates the slot enable bits; the result identifies L0.*
 
 Second, this function queries its own running thread. Microsoft documents that calling `GetThreadContext` for the current thread can succeed while returning an invalid context. The code above reproduces the challenge's implementation; it should not be treated as a reliable, portable detector. [GetThreadContext documentation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadcontext)
 
