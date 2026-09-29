@@ -63,9 +63,9 @@ The captured `Dr7` also had the local enable bit for slot 0 set:
 
 This was more specific than finding a nonzero address in a disabled slot. The snapshot described an enabled breakpoint at exactly the address where the debugger needed to stop after stepping over the call.
 
-> **[IMAGE 3 — Insert a screenshot showing the instruction immediately after GetThreadContext alongside Context.Dr0 and Context.Dr7. Highlight the matching addresses.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp5.png)
 >
-> *Suggested caption: Context.Dr0 points to the instruction after the call, and Context.Dr7 has L0 set.*
+> *Context.Dr0 points to the instruction after the call, and Context.Dr7 has L0 set.*
 
 There was also an easy return-value trap here. At this point, `EAX = 1` was the return value of `GetThreadContext`: the API had reported success. It was not yet the anti-debug function's return value.
 
