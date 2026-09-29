@@ -5,7 +5,6 @@ That did not match what I thought I had configured. I checked the breakpoint lis
 At first, I suspected a bug in the detection routine. I later discovered that an IDA setting caused the debugger to create a temporary hardware breakpoint when I pressed F8.
 
 
-
 ## The check
 
 The function's logic was essentially:
@@ -28,8 +27,6 @@ BOOL check_hw_breakpoints(void)
 }
 ```
 
-
-
 There are two limitations worth identifying before interpreting the result.
 
 First, a nonzero value in `Dr0–Dr3` only gives an address. Slot enablement is controlled by `DR7`: each slot `n` has a local enable bit `Ln` at position `2n` and a global enable bit `Gn` at position `2n + 1`. Either bit enables that slot. [Intel Software Developer's Manual, Volume 3B, Section 18.2.4](https://cdrdv2-public.intel.com/671427/253669-sdm-vol-3b.pdf#page=148)
@@ -41,7 +38,7 @@ BOOL slot_enabled = (ctx.Dr7 & (0x3ULL << (2 * n))) != 0;
 BOOL any_slot_enabled = (ctx.Dr7 & 0xFFULL) != 0;
 ```
 
-In my captured snapshot, `DR7` was `0x501`. Applying the mask gives `0x501 & 0xFF = 0x01`: only `L0` is set, so slot 0 is enabled. The other set bits lie outside the enable mask. This also explains why testing `Dr7 != 0` alone is insufficient.
+The captured values showed a nonzero address in Dr0 and Dr7 = 0x501. The L0 bit was set, indicating that hardware-breakpoint slot 0 was enabled. The other set bits lie outside the enable mask. This also explains why testing `Dr7 != 0` alone is insufficient.
 
 > ![DR7 enable bits and the 0x501 example](/assets/images/ida-f8/hbp8.png)
 >
