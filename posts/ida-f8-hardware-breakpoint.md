@@ -58,8 +58,8 @@ I paused immediately after the call to `GetThreadContext` and inspected the loca
 These were the values captured during that debugging session:
 
 ```text
-RIP         = 0x7FF76F3816CD
-Context.Dr0 = 0x7FF76F3816CD
+RIP         = 0x7FF62A4210B6
+Context.Dr0 = 0x7FF62A42216
 Context.Dr1 = 0x0000000000000000
 Context.Dr2 = 0x0000000000000000
 Context.Dr3 = 0x0000000000000000
