@@ -78,7 +78,7 @@ This was more specific than finding a nonzero address in a disabled slot. The sn
 
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp5.png)
 >
-> *Context.Dr0 points to the instruction after the call, and Context.Dr7 has L0 set.*
+> *Context.Dr0 points to the instruction after the call.*
 >
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp10.png)
 >
