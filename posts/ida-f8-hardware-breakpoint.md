@@ -140,6 +140,6 @@ The procedure is:
 
 Stepping over the outer call to `capture_debug_registers` would select a different return address, so the exact instruction matters.
 
-What made this case memorable was the exact address match: the breakpoint the program reported was the one the debugger used to bring control back to me. Pressing F8 to investigate the check had introduced the state that made the check succeed.
+What made this case memorable was that stepping through the check could introduce the very debugger state the program was looking for. A temporary breakpoint created by IDA could appear in the captured context even though I had configured only software breakpoints.
 
 The source code for this example is available on GitHub: [ida_f8_hbp_demo.c](https://github.com/parapapinho/ntknowledge.com/blob/main/assets/ida_f8_hbp_demo.c).
