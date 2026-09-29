@@ -123,6 +123,4 @@ The procedure is:
 
 Stepping over the outer call to `capture_debug_registers` would select a different return address, so the exact instruction matters.
 
-In the supplied build, the API call is at RVA `0x1039`, and the following instruction is at RVA `0x103F`. These offsets can change after recompilation. ASLR can also change the image base between runs, so compare each address against the corresponding instruction in that execution.
-
 What made this case memorable was the exact address match: the breakpoint the program reported was the one the debugger used to bring control back to me. Pressing F8 to investigate the check had introduced the state that made the check succeed.
