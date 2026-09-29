@@ -112,17 +112,6 @@ That explained why inspecting only my configured breakpoint list had been mislea
 >
 > *This option allows IDA to use temporary hardware breakpoints when stepping over calls.*
 
-## Changing one setting
-
-I disabled **Use hardware temporary breakpoints**, repeated the execution, and the unexpected detection disappeared in the original challenge.
-
-That comparison connected the result to the debugger option. The function was observing state introduced by the way I was stepping through it.
-
-Repeating the call matters. Once `GetThreadContext` has copied values into a `CONTEXT` structure, that structure is a snapshot. Changing the debugger setting afterward does not rewrite the data already captured by the program.
-
-> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp6.png)
->
-> *Repeating the same operation with temporary hardware breakpoints disabled removed the observed trigger.*
 
 ## Reproducing the observation
 
