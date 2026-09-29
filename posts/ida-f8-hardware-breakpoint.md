@@ -2,11 +2,12 @@ While debugging a Windows x64 challenge in IDA, I encountered a small function t
 
 That did not match what I thought I had configured. I checked the breakpoint list: both entries were software breakpoints.
 
-At first, I suspected a bug in the detection routine. I later discovered that an IDA setting caused the debugger to create a temporary hardware breakpoint when I pressed F8.
-
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp4.png)
 >
 > *The breakpoints I had configured were all software breakpoints.*
+
+
+At first, I suspected a bug in the detection routine. I later discovered that an IDA setting caused the debugger to create a temporary hardware breakpoint when I pressed F8.
 
 ## The check
 
