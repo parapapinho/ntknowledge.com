@@ -4,13 +4,15 @@ That did not match what I thought I had configured. I checked the breakpoint lis
 
 At first, I suspected a bug in the detection routine. I later discovered that an IDA setting caused the debugger to create a temporary hardware breakpoint when I pressed F8.
 
-> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp3.png)
->
-> *The function checks the debug-register values returned by GetThreadContext.*
+
 
 ## The check
 
 The function's logic was essentially:
+
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp3.png)
+>
+> *The function checks the debug-register values returned by GetThreadContext.*
 
 ```c
 BOOL check_hw_breakpoints(void)
@@ -25,6 +27,8 @@ BOOL check_hw_breakpoints(void)
            ctx.Dr2 != 0 || ctx.Dr3 != 0;
 }
 ```
+
+
 
 There are two limitations worth identifying before interpreting the result.
 
