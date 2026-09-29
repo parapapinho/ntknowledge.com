@@ -134,7 +134,7 @@ The example retains the challenge's current-thread use of `GetThreadContext`, in
 
 2. **Open the program in IDA.** Load the matching PDB and select the local Windows debugger.
 
-3. **Enable the debugger option.** Open **Debugger options** and enable **Use hardware temporary breakpoints**. Leave the hardware-breakpoint slots free for this experiment.
+3. **Check the debugger option**. Open Debugger options and make sure Use hardware temporary breakpoints is enabled.
 
 4. **Stop on the API call.** In the disassembly of `capture_debug_registers()`, locate the `call` to `GetThreadContext`. Set a **software breakpoint on that instruction**, then run or continue until execution stops there. If you are stopped on the outer call to `capture_debug_registers()` instead, use **F7 (Step Into)** to enter the helper, then continue to the software breakpoint on the API call.
 
