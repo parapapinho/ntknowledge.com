@@ -126,21 +126,36 @@ Repeating the call matters. Once `GetThreadContext` has copied values into a `CO
 
 ## Reproducing the observation
 
-I prepared a small C example, `ida_f8_hbp_demo.c`, that captures and prints the debug-register fields. It also reports the original address-only test separately from the `Dr7` enable mask.
+The [C example on GitHub](https://github.com/parapapinho/ntknowledge.com/blob/main/assets/ida_f8_hbp_demo.c) captures and prints the debug-register fields. It also reports the address-only check and the `Dr7` enable mask separately.
 
-The example deliberately retains the same current-thread query, including its documented limitation. It does not set or clear breakpoints itself.
+Build it from an **x64 Native Tools Command Prompt for Visual Studio**, with optimizations disabled and debug information enabled:
 
-The procedure is:
+```bat
+cl /nologo /TC /std:c17 /Od /Ob0 /Zi ida_f8_hbp_demo.c /link /DEBUG /INCREMENTAL:NO
+```
 
-1. Run the EXE normally and save that observation as a baseline.
-2. Open it in IDA, load its PDB, and select the local Windows debugger.
-3. Set a software breakpoint at `capture_debug_registers`. Leave the hardware slots free for this experiment.
-4. Enable **Use hardware temporary breakpoints**.
-5. Stop on the `call` that invokes `GetThreadContext`, then press F8 on that specific instruction.
-6. Compare the current instruction address with `g_context.Dr0–Dr3` and inspect `g_context.Dr7`.
-7. Disable the option, restart, and repeat the same sequence.
+The example retains the challenge's current-thread use of `GetThreadContext`, including the documented limitation discussed earlier. The following steps describe how I reproduced the behavior in my debugging session.
 
-Stepping over the outer call to `capture_debug_registers` would select a different return address, so the exact instruction matters.
+1. **Record a baseline.** Run the EXE outside IDA and save its output for comparison.
+
+2. **Open the program in IDA.** Load the matching PDB and select the local Windows debugger.
+
+3. **Enable the debugger option.** Open **Debugger options** and enable **Use hardware temporary breakpoints**. Leave the hardware-breakpoint slots free for this experiment.
+
+4. **Stop on the API call.** In the disassembly of `capture_debug_registers()`, locate the `call` to `GetThreadContext`. Set a **software breakpoint on that instruction**, then run or continue until execution stops there. If you are stopped on the outer call to `capture_debug_registers()` instead, use **F7 (Step Into)** to enter the helper, then continue to the software breakpoint on the API call.
+
+5. **Press F8 on the GetThreadContext call.** This is the specific Step Over operation that reproduced the behavior in my test. IDA should stop at the instruction immediately after the API call.
+
+6. **Inspect the captured values.** Examine `g_context.Dr0` through `g_context.Dr3` and `g_context.Dr7` directly. Use the enable bits to identify the enabled slots. In my run, `Dr0` contained the address immediately after the API call, and `Dr7` was `0x501`, with `L0` set. The absolute address can change between runs.
+
+7. **Repeat with the option disabled.** Disable **Use hardware temporary breakpoints**, restart the process, and repeat the same F8 operation on the same API call. Record the new values and compare them with the first run.
+
+Inspect `g_context` directly at the post-call stop. The local `addresses[]` array in `main` is populated later, so its contents are not yet the captured register values at this point.
+
+Repeat the API call for each comparison: changing the debugger option does not update values already stored in `g_context`.
+
+In my test, stepping over the outer `capture_debug_registers()` call did not reproduce the result. The trigger was **F8 directly on GetThreadContext**.
+
 
 What made this case memorable was that stepping through the check could introduce the very debugger state the program was looking for. A temporary breakpoint created by IDA could appear in the captured context even though I had configured only software breakpoints.
 
