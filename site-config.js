@@ -12,7 +12,7 @@ window.siteConfig = {
       title: "The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check",
       slug: "post-de-teste",
       date: "2026-09-29",
-      path: "posts/The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check.md"
+      path: "posts/ida-f8-hardware-breakpoint.md"
     }
   ]
 };
