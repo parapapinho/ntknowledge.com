@@ -68,9 +68,13 @@ IDA prepared a temporary hardware breakpoint at that destination. While `GetThre
 
 The captured `g_context.Dr7` value was `0x501`. Its `L0` bit was set, indicating that hardware-breakpoint slot 0 was enabled in the captured context.
 
-> **[IMAGE 2 — Insert a screenshot taken immediately after stepping over GetThreadContext. Show the next instruction together with g_context.Dr0 and g_context.Dr7. Highlight the matching instruction address and Dr0 value. Inspect g_context directly.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp13.png)
 >
-> *The captured Dr0 value points to the instruction after GetThreadContext, and Dr7 = 0x501 has the slot 0 local enable bit set.*
+> *The captured Dr0 value points to the instruction after GetThreadContext.*
+>
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp14.png)
+>
+> *Dr7 = 0x501 has the slot 0 local enable bit set.*
 
 The order of events explains how the temporary breakpoint became visible to the program:
 
