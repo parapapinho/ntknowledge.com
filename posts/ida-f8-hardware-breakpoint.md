@@ -63,7 +63,7 @@ For this test, I enabled **Use hardware temporary breakpoints** and pressed **F8
 0x7FF62A4210B6  cmp  cs:g_api_ok, 0
 ```
 
-> **[IMAGE 1 — Insert a screenshot showing the call to capture_debug_registers and the instruction immediately after it. Highlight 0x7FF62A4210B6 as the Step Over destination.]**
+> ![DR7 enable bits and the 0x501 example](/assets/images/ida-f8/hbp11.png)
 >
 > *After stepping over capture_debug_registers(), IDA stops at the next instruction in main.*
 
