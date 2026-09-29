@@ -44,7 +44,7 @@ The captured values showed a nonzero address in Dr0 and Dr7 = 0x501. The L0 bit 
 >
 > *Masking the captured DR7 with 0xFF isolates the slot enable bits; the result identifies L0.*
 
-Second, this function queries its own running thread. Microsoft documents that calling `GetThreadContext` for the current thread can succeed while returning an invalid context. The code above reproduces the challenge's implementation; it should not be treated as a reliable, portable detector. [GetThreadContext documentation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadcontext)
+Second, this function calls GetThreadContext on its own running thread. According to Microsoft, the call may report success even though the returned context is not valid. The code above reproduces the challenge's implementation, including this limitation.[GetThreadContext documentation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadcontext)
 
 Those limitations made it especially useful to inspect the actual values behind the result.
 
