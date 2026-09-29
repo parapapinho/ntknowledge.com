@@ -66,9 +66,7 @@ Context.Dr3 = 0x0000000000000000
 Context.Dr7 = 0x0000000000000501
 ```
 
-`Context.Dr0` matched the instruction pointer exactly. That address was the instruction immediately after the call to `GetThreadContext`.
-
-The captured `Dr7` also had the local enable bit for slot 0 set:
+The captured context showed a nonzero breakpoint address in Dr0 and Dr7 = 0x501. With the L0 enable bit set, hardware-breakpoint slot 0 was enabled in the snapshot returned by `GetThreadContext`.
 
 ```text
 0x501 & 0xFF = 0x01
