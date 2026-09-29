@@ -4,6 +4,9 @@ That did not match what I thought I had configured. I checked the breakpoint lis
 
 At first, I suspected a bug in the detection routine. I later discovered that an IDA setting caused the debugger to create a temporary hardware breakpoint when I pressed F8.
 
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp4.png)
+>
+> *The breakpoints I had configured were all software breakpoints.*
 
 ## The check
 
@@ -47,10 +50,6 @@ The captured values showed a nonzero address in Dr0 and Dr7 = 0x501. The L0 bit 
 Second, this function calls GetThreadContext on its own running thread. According to Microsoft, the call may report success even though the returned context is not valid. The code above reproduces the challenge's implementation, including this limitation. [GetThreadContext documentation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadcontext)
 
 Those limitations made it especially useful to inspect the actual values behind the result.
-
-> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp4.png)
->
-> *The breakpoints I had configured were all software breakpoints.*
 
 ## The address that explained it
 
