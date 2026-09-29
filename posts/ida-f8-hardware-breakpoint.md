@@ -73,7 +73,7 @@ The context returned by `GetThreadContex`t showed a nonzero address in Dr0 and D
 0x501 & 0xFF = 0x01
 ```
 
-This was more specific than finding a nonzero address in a disabled slot. The snapshot described an enabled breakpoint at exactly the address where the debugger needed to stop after stepping over the call.
+This was more specific than finding a nonzero address in a disabled slot. The captured values showed an enabled hardware breakpoint, consistent with the temporary breakpoint IDA uses to stop execution after stepping over a call.
 
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp5.png)
 >
