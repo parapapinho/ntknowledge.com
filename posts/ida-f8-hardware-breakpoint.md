@@ -54,38 +54,37 @@ Those limitations made it especially useful to inspect the actual values behind 
 
 ## The address that explained it
 
-I paused immediately after the call to `GetThreadContext` and inspected the local `Context` structure written by the API.
+I used the C example linked below to reproduce the behavior. Its `capture_debug_registers()` function calls `GetThreadContext`, which fills the global `g_context` structure with the requested register values.
 
-These were the values captured during that debugging session:
+For this test, I enabled **Use hardware temporary breakpoints** and pressed **F8 on the call to `capture_debug_registers()` in `main`**. Stepping over this call lets the function execute and stops at the instruction immediately after it:
 
-```text
-RIP         = 0x7FF62A4210B6
-Context.Dr0 = 0x7FF62A42216E
-Context.Dr1 = 0x0000000000000000
-Context.Dr2 = 0x0000000000000000
-Context.Dr3 = 0x0000000000000000
-Context.Dr7 = 0x0000000000000501
+```asm
+0x7FF62A4210B1  call capture_debug_registers
+0x7FF62A4210B6  cmp  cs:g_api_ok, 0
 ```
 
-The context returned by `GetThreadContex`t showed a nonzero address in Dr0 and Dr7 = 0x501. The L0 bit was set, indicating that hardware-breakpoint slot 0 was enabled.
+> **[IMAGE 1 — Insert a screenshot showing the call to capture_debug_registers and the instruction immediately after it. Highlight 0x7FF62A4210B6 as the Step Over destination.]**
+>
+> *After stepping over capture_debug_registers(), IDA stops at the next instruction in main.*
+
+With this option enabled, IDA can use a temporary hardware breakpoint at that destination. The timing matters: `GetThreadContext` runs **inside** `capture_debug_registers()`, before the function returns to `main`. The temporary breakpoint can therefore already be installed when the register values are captured.
+
+In this run, the captured values included:
 
 ```text
-0x501 & 0xFF = 0x01
+g_context.Dr0 = 0x00007FF62A4210B6
+g_context.Dr7 = 0x0000000000000501
 ```
 
-This was more specific than finding a nonzero address in a disabled slot. The captured values showed an enabled hardware breakpoint, consistent with the temporary breakpoint IDA uses to stop execution after stepping over a call.
+The address in `g_context.Dr0` points to the instruction immediately after the outer call to `capture_debug_registers()`. It is the location where IDA would regain control once that function finished. The value `0x501` in `g_context.Dr7` has `L0` set, indicating that hardware-breakpoint slot 0 was enabled in the captured context.
 
-> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp5.png)
+> **[IMAGE 2 — Insert a screenshot showing g_context.Dr0 and g_context.Dr7 after the API call, or the program's console output with those values highlighted. Inspect g_context directly; do not use addresses[] before its assignments have executed.]**
 >
-> *Context.Dr0 points to the instruction after the call.*
->
-> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp10.png)
->
->  *Context.Dr7 has L0 set.*
+> *The captured Dr0 value points to the Step Over destination, while Dr7 = 0x501 has the slot 0 local enable bit set.*
 
-There was also an easy return-value trap here. At this point, `EAX = 1` was the return value of `GetThreadContext`: the API had reported success. It was not yet the anti-debug function's return value.
+`GetThreadContext` reports success separately through its return value, which the example stores in `g_api_ok`. The `cmp` instruction shown above checks that flag. The breakpoint address itself is stored in the `Dr0` field of `g_context`.
 
-The function would subsequently inspect the captured fields and return `true` because `Context.Dr0` was nonzero. Those were two separate results.
+Those fields retain the captured values even after IDA removes the temporary breakpoint. The later check can therefore find a nonzero `Dr0` value that came from the debugger's own Step Over operation, even though I had configured only software breakpoints myself.
 
 ## What F8 was doing
 
