@@ -56,6 +56,8 @@ Those limitations made it especially useful to inspect the actual values behind 
 
 I used the C example linked below to reproduce the behavior. Its `capture_debug_registers()` function calls `GetThreadContext` and stores the captured register values in the global `g_context` structure.
 
+[ida_f8_hbp_demo.c](https://github.com/parapapinho/ntknowledge.com/blob/main/assets/ida_f8_hbp_demo.c).
+
 In my test, stepping over `capture_debug_registers()` did not reproduce the result. I entered that function and pressed **F8 directly on the call to `GetThreadContext`**, with **Use hardware temporary breakpoints** enabled.
 
 This detail matters because Step Over needs a stopping point immediately after the specific call being stepped over. Here, that stopping point was the instruction following the call to `GetThreadContext`.
