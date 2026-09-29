@@ -4,9 +4,9 @@ That did not match what I thought I had configured. I checked the breakpoint lis
 
 My first suspicion was a bug in the detection routine. What eventually explained the result was an IDA setting—and a temporary hardware breakpoint created when I pressed F8.
 
-> **[IMAGE 1 — Insert the original anti-debug function in IDA's pseudocode view.]**
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/ida-f8/hbp3.png)
 >
-> *Suggested caption: The function checks the debug-register values returned by GetThreadContext.*
+> *The function checks the debug-register values returned by GetThreadContext.*
 
 ## The check
 
