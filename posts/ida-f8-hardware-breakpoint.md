@@ -67,7 +67,7 @@ Context.Dr3 = 0x0000000000000000
 Context.Dr7 = 0x0000000000000501
 ```
 
-The captured context showed a nonzero breakpoint address in Dr0 and Dr7 = 0x501. With the L0 enable bit set, hardware-breakpoint slot 0 was enabled in the snapshot returned by `GetThreadContext`.
+The context returned by `GetThreadContex`t showed a nonzero address in Dr0 and Dr7 = 0x501. The L0 bit was set, indicating that hardware-breakpoint slot 0 was enabled.
 
 ```text
 0x501 & 0xFF = 0x01
