@@ -9,6 +9,12 @@ window.siteConfig = {
   cvUrl: "assets/cv.pdf",
   posts: [
     {
+      title: "Unpacking Enigma Protector 7.40 Like the Old Days: Bypassing Anti-Debugging, Finding the OEP, and Rebuilding the IAT",
+      slug: "unpacking-enigma-protector-7-40",
+      date: "2026-10-07",
+      path: "posts/unpacking-enigma-protector-7-40.md"
+    },
+    {
       title: "The Breakpoint I Never Set: How IDA's F8 Triggered an Anti-Debug Check",
       slug: "ida-f8-hardware-breakpoint",
       date: "2026-09-29",
