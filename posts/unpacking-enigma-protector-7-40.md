@@ -1,3 +1,11 @@
+## Introdução
+
+O Enigma Protector é um nome conhecido de quem passou pelos tutoriais de unpacking de anos atrás, mas continua aparecendo em análises de malware. Em junho de 2026, a [ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/). Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. Em 2025, a [Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf), no mapeamento de técnicas apresentado ao final do relatório.
+
+Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial. Para quem analisa malware, entender a proteção ajuda a chegar ao código que interessa e a distinguir o comportamento do loader daquele que pertence à aplicação. Quis registrar esse processo como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio por trás de cada etapa, das checagens anti-debugging à localização do OEP e à reconstrução da IAT.
+
+Para isso, usei o aplicativo de teste fornecido pelo próprio Enigma, protegido com a versão x64 7.40. Ter o executável original permite comparar os resultados e identificar o que foi recuperado em cada etapa. As campanhas citadas motivam o estudo; a análise a seguir se refere a essa amostra de laboratório e às configurações testadas.
+
 ## Anti-debugger, OEP, dump e reconstrução da IAT — tutorial da nossa amostra
 
 Este é o registro prático do que fizemos com o aplicativo de teste fornecido pelo próprio Enigma. A ideia é seguir o caminho de uma análise clássica: observar a reação do protegido, localizar a checagem, atravessar o loader, parar no **Original Entry Point (OEP)**, fazer o dump e reconstruir os imports. Os endereços abaixo pertencem **a estes builds**. Para outra proteção, é preciso repetir as medições.
