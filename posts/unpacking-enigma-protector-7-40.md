@@ -15,9 +15,17 @@ Para começarmos utilizei a versão 7.40 do Enigma
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng1.png)
 >
 
-No primeiro protegido, o PE continuou sendo AMD64/PE32+ com `ImageBase=0x100000000`, mas o entry point passou de RVA `0x162B0` para `0x129DE44`, e a contagem de seções passou de oito para onze. Por isso o x64dbg começou em `0x10129DE44`, dentro do loader do Enigma. O OEP esperado pela comparação com o original era `0x1000162B0`; mais tarde, confirmamos sua execução.
+É possível notar que o Enigma possui diversas opções de configuração:
 
-**VA e RVA:** neste carregamento, `VA = 0x100000000 + RVA`. Os endereços de `ntdll`, `kernel32`, pilha e outras DLLs podem mudar ao reiniciar o processo ou o Windows. Use os nomes das APIs e confirme os bytes, em vez de copiar os endereços dessas DLLs cegamente.
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng2.png)
+>
+
+Para nosso estudo eu foquei em apenas na função anti debugger e sobre as técnicas de emulação de API, as imagens abaixo ilustram as configurações utilizadas:
+
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng3.png)
+>
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng4.png)
+
 
 ## 2. A primeira reação: aviso de debugger
 
