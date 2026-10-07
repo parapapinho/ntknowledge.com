@@ -1,30 +1,19 @@
 ## Introdução
 
-Para quem acompanhava os tutoriais de unpacking no Tuts4You ou no CrackLatinos, o nome Enigma Protector traz boas lembranças. Eram horas no debugger, seguindo o loader e tentando entender o que ainda faltava para aquele dump funcionar fora dele. Revisitar esse tipo de proteção tem um pouco dessa nostalgia. O que me chamou a atenção recentemente, porém, foi encontrar o Enigma novamente em pesquisas sobre operações de malware.
+Para quem acompanhava os tutoriais de unpacking no Tuts4You ou no CrackLatinos, o nome Enigma Protector traz boas lembranças. Eram horas no debugger, muitas horas de tracing e tentando entender o que ainda faltava para aquele dump funcionar com IAT corrigida. Revisitar esse tipo de proteção tem um pouco dessa nostalgia. O que me chamou a atenção recentemente, porém, foi encontrar o Enigma novamente em pesquisas sobre operações de malware.
 
 Em junho de 2026, a [ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/). Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. Em 2025, a [Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf), no mapeamento de técnicas apresentado ao final do relatório. Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
 
-A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT). Também vou mostrar como conferimos os resultados: alcançar o OEP é uma etapa, e ainda há trabalho para transformar a imagem em memória em um executável que inicialize corretamente.
+A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT). Também vou mostrar como conferimos os resultados: alcançar o OEP é uma etapa, e ainda há trabalho para transformar a imagem em memória em um executável que inicialize corretamente.
 
-Para isso, usei o aplicativo de teste fornecido pelo próprio Enigma, protegido com a versão x64 7.40. Ter o executável original permite comparar o código e as estruturas PE, além de identificar o que foi recuperado e o que precisou ser reposto. As campanhas citadas motivam o estudo; a análise a seguir se refere a essa amostra de laboratório e às configurações testadas.
+## Anti-debugger, OEP, dump e reconstrução da IAT
 
-## Anti-debugger, OEP, dump e reconstrução da IAT — tutorial da nossa amostra
+Para começarmos utilizei a versão 7.40 do Enigma
 
-Este é o registro prático do que fizemos com o aplicativo de teste fornecido pelo próprio Enigma. A ideia é seguir o caminho de uma análise clássica: observar a reação do protegido, localizar a checagem, atravessar o loader, parar no **Original Entry Point (OEP)**, fazer o dump e reconstruir os imports. Os endereços abaixo pertencem **a estes builds**. Para outra proteção, é preciso repetir as medições.
-
-> **Escopo:** `teste_protectd.EXE` é a primeira amostra, usada para o dump e a IAT. `teste_protectd2.EXE` tem também a checagem em runtime; nela testamos o bypass e a abertura sob o debugger, mas não fizemos um dump/IAT novos. Os projetos exatos desses dois arquivos não foram fornecidos. Para atribuir cada opção, produzimos builds de controle a partir do mesmo `test64.exe` original.
-
-## 1. Mesa de trabalho
-
-Usamos x64dbg, IDA com depurador local, OllyDumpEx, Python e `pefile`. Os arquivos e resultados desta sessão estão em `analysis/`. O original sem proteção serviu de referência controlada para comparar o OEP e conferir a reconstrução.
-
-| Arquivo | Papel | SHA-256 |
-| --- | --- | --- |
-| `test64.exe` | Original do aplicativo de teste | `49760cd8437b4ba325cbe909c84ec6897980ef0f6f720503cfdca620846413fa` |
-| `teste_protectd.EXE` | Primeiro protegido | `880e43ec57e487dc796f3a8a91ececc95cc96b98f45561201084538189c11a19` |
-| `teste_protectd2.EXE` | Protegido com checagem em runtime | `067d6bc15e5058a434bce335b23dd725c13b6bedd4a4758ec28693a59661bb4e` |
+> ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng1.png)
+>
 
 No primeiro protegido, o PE continuou sendo AMD64/PE32+ com `ImageBase=0x100000000`, mas o entry point passou de RVA `0x162B0` para `0x129DE44`, e a contagem de seções passou de oito para onze. Por isso o x64dbg começou em `0x10129DE44`, dentro do loader do Enigma. O OEP esperado pela comparação com o original era `0x1000162B0`; mais tarde, confirmamos sua execução.
 
