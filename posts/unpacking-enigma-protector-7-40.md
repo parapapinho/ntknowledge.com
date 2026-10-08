@@ -1,12 +1,12 @@
 ## Introdução
 
-Para quem acompanhava os tutoriais de unpacking no Tuts4You ou no CrackLatinos, o nome Enigma Protector traz boas lembranças. Eram horas no debugger, muitas horas de tracing e tentando entender o que ainda faltava para aquele dump funcionar com IAT corrigida. Revisitar esse tipo de proteção tem um pouco dessa nostalgia. O que me chamou a atenção recentemente, porém, foi encontrar o Enigma novamente em pesquisas sobre operações de malware.
+Para quem acompanhava os tutoriais de unpacking no CrackLatinos ou Tuts4You , o nome Enigma Protector traz boas lembranças ou péssimas dependendo da sua skill rsrs. Eram horas no debugger, muitas horas de tracing e tentando entender o que ainda faltava para aquele dump funcionar com IAT corrigida. Revisitar esse tipo de proteção me trás muita nostalgia. Contudo, o que me chamou a atenção recentemente, foi encontrar o Enigma novamente em pesquisas recentes sobre operações de malware.
 
 Em junho de 2026, a [ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/). Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. Em 2025, a [Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf), no mapeamento de técnicas apresentado ao final do relatório. Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
 
-A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT). Também vou mostrar como conferimos os resultados: alcançar o OEP é uma etapa, e ainda há trabalho para transformar a imagem em memória em um executável que inicialize corretamente.
+A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT). 
 
 ## Anti-debugger, OEP, dump e reconstrução da IAT
 
