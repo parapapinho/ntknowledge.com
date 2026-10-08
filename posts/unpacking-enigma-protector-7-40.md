@@ -26,10 +26,13 @@ Para nosso estudo eu foquei em apenas na função anti debugger e sobre as técn
 >
 > ![Anti-debug function in IDA's pseudocode view](/assets/images/enigma/eng4.png)
 
+Ao usar o instalador do Enigma, ele trás consigo um executável de teste, então utilizei esse arquivo como exemplo. Utilizando as configurações das imagens acima, eu protegi o executável com o Enigma e oartir para o debugging.
 
-## 2. A primeira reação: aviso de debugger
+A primeira coisa que eu gosto de fazer ao debugar qualquer programa, é executa-lo, e verificar se ocorre algum problema na execução. Para nossos testes vou utilizar apenas o IDA PRO 9.4 e x64dbg, ambos sem nenhum plugin anti debugging.
 
-Ao continuar o primeiro protegido no x64dbg, surgiu a janela **Debugger warning** e a aplicação não chegou ao OEP. A lista inicial de imports continha `MessageBoxA`, mas um breakpoint nessa API não parou no caminho do aviso. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
+Primeiro executei o arquivo no x64dbg e notei 
+
+A surgiu a janela **Debugger warning** e a aplicação não chegou ao OEP. A lista inicial de imports continha `MessageBoxA`, mas um breakpoint nessa API não parou no caminho do aviso. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
 
 Na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada. Para confirmar, passamos a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API, antes de resolver a ocultação de thread, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
 
