@@ -32,9 +32,15 @@ A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-
 
 ## 2. A primeira reação: aviso de debugger
 
-Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning**, e a aplicação não chegou ao OEP. A lista inicial de imports continha `MessageBoxA`, mas um breakpoint nessa API não parou no caminho do aviso. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
+Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a lista inicial de imports continha `MessageBoxA`, mas um breakpoint nessa API não foi disparado ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
 
-Na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada. Para confirmar, passei a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API, antes de resolver a ocultação de thread, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
+> ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng5.png)
+>
+
+> ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng6.png)
+>
+
+Bem como qualquer reversing guy, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada. Para confirmar, passei a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API, antes de resolver a ocultação de thread, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
