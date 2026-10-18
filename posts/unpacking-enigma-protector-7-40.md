@@ -91,19 +91,24 @@ Deslocamento da falha:         0x45180
 Endereço da falha:     0x7FFAD8B15180
 ```
 
-O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim, o registro de falha permitiu localizar a exceção mesmo sem o log esperado do x64dbg. Isso confirmou o local da falha nesse teste; ainda não demonstrava que o Enigma inspecionava o byte do breakpoint ou detectava os registradores de depuração.
+O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim, o registro de falha permitiu localizar a exceção mesmo sem o log esperado do x64dbg. Isso confirmou o local da falha nesse teste.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
-Investigando mais um pouco vi que o loader chamou **ntdll!NtSetInformationThread** a partir de **0x1002EACBE**. Na entrada da chamada da thread principal, observei:
+Os breakpoints em CheckRemoteDebuggerPresent provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
 
-```text
-RCX = -2       ; thread atual
-RDX = 0x11     ; ThreadHideFromDebugger
-comprimento = 0
-```
+Para averiguar isso, eu criei um script em python que pegasse o ID da thread principal na aba Threads do debugger. O programa abrirá essa thread com OpenThread e chamará NtQueryInformationThread, passando a classe ThreadHideFromDebugger (0x11). Essa consulta devolve um byte: 1 indica que a thread está oculta; 0, que não está. 
 
-Uma consulta externa encontrou a thread principal com **hidden=1** depois da inicialização. Ao desviar a chamada apenas na memória, **hidden** permaneceu `igual a 0 e o breakpoint em **CheckRemoteDebuggerPresent** passou a funcionar. O retorno do call em **0x1002EACC1** não testava o status.
+O valor só deve ser interpretado quando a chamada retorna sucesso. Nosso script apenas consultava o estado da thread — não injetava código nem modificava o processo protegido.
+
+Na amostra, a consulta retornou hidden=1 para a thread principal. Isso confirmou que ela estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em ntdll!NtSetInformationThread e observei o loader chamá-la com RCX=-2 (thread atual) e RDX=0x11 (ThreadHideFromDebugger). 
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng12.png)
+
+Ao impedir essa chamada em um teste controlado, o leitor passou a retornar hidden=0, e o breakpoint em CheckRemoteDebuggerPresent parou normalmente. Essa sequência ligou o estado observado à chamada do loader.
+
+
+
 
 A forma de repetir o desvio que usei nos ensaios posteriores foi trocar os três bytes iniciais da exportação **na memória do processo depurado**:
 
@@ -113,9 +118,7 @@ antes:  4C 8B D1
 depois: 31 C0 C3      ; xor eax,eax / ret
 ```
 
-O stub retorna `STATUS_SUCCESS` sem ocultar a thread. Faça isso com o depurado parado antes do loader executar; o arquivo em disco e a DLL do sistema em disco não foram modificados. Neste Windows, a exportação estava em `0x7FFB3F421E30`, endereço que deve ser resolvido de novo em outra sessão.
 
-**O que os controles mostraram:** a mesma chamada `ThreadHideFromDebugger` ocorreu com o checkbox **Check-Up > AntiDebugger** desligado e ligado. Portanto, nesse par de projetos, ela pertence à proteção geral do loader e não foi acrescentada pelo checkbox AntiDebugger.
 
 ## 4. A checagem inicial do Check-Up
 
@@ -182,11 +185,6 @@ python analysis\patch_debuggee_apis.py <PID_DO_DEPURADO>
 
 O script exige o caminho exato de `teste_protectd.EXE`, confere os bytes originais das duas exportações, escreve os dois stubs acima e relê os bytes. Ele foi ensaiado no processo depurado desta máquina. Para localizar as APIs, usa as bases das DLLs no processo Python; se as bases diferirem no depurado, a conferência dos bytes remotos falhará. Os bytes de origem também dependem desta versão do Windows. Nesses casos, resolva novamente os símbolos no próprio debugger antes de repetir o patch.
 
-## 6. PEB e outras pistas: o que investiguei sem transformar em “prova”
-
-Coloquei watchpoints de hardware em `PEB.BeingDebugged` (`PEB+2`) e `PEB.NtGlobalFlag` (`PEB+0xBC`), filtrando as paradas para o código protegido. Nos caminhos testados da entrada do packer até o OEP, não observei leitura direta desses dois campos pelo Enigma. Eles continuaram `BeingDebugged=1` e `NtGlobalFlag=0x70` enquanto o loader chegou ao OEP depois de zerar apenas o `BOOL` de `CheckRemoteDebuggerPresent`.
-
-Isso é um resultado **limitado ao caminho observado**, não uma prova de que o Enigma nunca use PEB. Também investiguei chamadas a outras APIs frequentemente associadas a anti-debug. Chamadas como `IsDebuggerPresent` por `uxtheme.dll` e `RtlQueryProcessDebugInformation` dentro de `CreateToolhelp32Snapshot` tinham chamadores do Windows, não uma decisão independente atribuível ao loader. Um snapshot com flag `0x8` enumerava módulos do processo atual, não a lista de processos (`0x2`). Busca de bytes como `RDTSC`, `CPUID` ou `INT 2D` no arquivo empacotado também não demonstra que foram executados.
 
 ## 7. Do loader ao OEP: encontrar o “magic jump”
 
