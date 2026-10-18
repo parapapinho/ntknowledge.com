@@ -6,7 +6,7 @@ Em junho de 2026, a [ESET documentou o uso de Enigma e Themida em ferramentas pa
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
 
-A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT). 
+A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT).
 
 ## 1. Preparando o executável
 
@@ -32,63 +32,66 @@ A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-
 
 ## 2. Sendo detectado
 
-Primeiro, executei o programa no x64dbg.Logo surgiu a janela de **Debugger warning**, e a lista inicial de imports continha **MessageBoxA**, mas um breakpoint nessa API não funcionou ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
+Primeiro, executei o programa no x64dbg. Logo surgiu a janela **Debugger warning**. A lista inicial de imports continha `MessageBoxA`, mas o breakpoint que coloquei nessa API não foi atingido antes de o aviso aparecer. Só a presença da função na tabela de imports não era suficiente para identificar o caminho usado para exibir aquela mensagem.
 
-> ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng5.png)
+> ![Aviso Debugger warning informando que o programa não será executado enquanto houver um debugger ativo](/assets/images/enigma/eng5.png)
 >
+> ![Lista de imports no x64dbg com user32.MessageBoxA em destaque](/assets/images/enigma/eng6.png)
 
-> ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng6.png)
+Bem, tentei retornar ao código do programa pelo debugger, mas não consegui. Então pausei a execução e encontrei, na visualização da pilha, um ponteiro para a string `CheckRemoteDebuggerPresent`. Segundo a [documentação da Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent), essa API verifica se o processo especificado está sendo depurado. Era uma boa pista de uma possível checagem anti-debugging, embora a string, sozinha, ainda não comprovasse uma chamada. Pelo menos eu já tinha por onde começar.
+
+> ![Visualização da pilha com ponteiros para as strings kernel32.dll e CheckRemoteDebuggerPresent](/assets/images/enigma/eng7.png)
+
+Para confirmar o uso de `CheckRemoteDebuggerPresent`, coloquei um breakpoint de software na API e, em outra execução, testei um breakpoint de hardware (HBP). O resultado chamou minha atenção: com o breakpoint de software, o x64dbg registrou o encerramento do processo com o código `0x80000003` (`STATUS_BREAKPOINT`); com o HBP, o código foi `0x80000004` (`STATUS_SINGLE_STEP`).
+
+Esses códigos correspondem a exceções de breakpoint e de single-step, respectivamente. Em x86/x64, um breakpoint de software normalmente usa a instrução `INT3`; um breakpoint de hardware pode gerar uma exceção de single-step, assim como a execução passo a passo. Portanto, esses códigos não significam, por si só, que o programa detectou o debugger ou inspecionou os breakpoints.
+
+As imagens abaixo mostram os códigos de saída registrados nas duas tentativas:
+
+> ![Log do x64dbg mostrando o encerramento do processo com o código 0x80000003, STATUS_BREAKPOINT](/assets/images/enigma/eng8.png)
 >
+> ![Log do x64dbg mostrando o encerramento do processo com o código 0x80000004, STATUS_SINGLE_STEP](/assets/images/enigma/eng9.png)
 
-Bem, eu tentei fazer um *return until code*, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string **c**, a Microsoft define essa API assim: "Determines whether the specified process is being debugged." Então temos nossa primeira API antidebugging do Enigma, isso é muito bom, pelo menos não estou tão perdido.
+Minha suspeita era que alguma proteção estivesse interferindo na depuração. O comportamento merecia investigação, mas eu ainda precisava descobrir onde a falha ocorria e por que não conseguia parar na API.
 
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng7.png)
->
+Eu queria confirmar se a exceção ocorria exatamente no endereço em que havia colocado o breakpoint em `kernel32!CheckRemoteDebuggerPresent`. Para isso, precisava distinguir duas informações: o **código da exceção**, que identifica seu tipo, e o **endereço da exceção**, que indica onde ela ocorreu.
 
-Para confirmar o uso de **CheckRemoteDebuggerPresent**, pensei em por um software breakpoint ou hardware nessa API, e o que aconteceu chamou minha atenção. Ao executar o programa usando as duas opções de breakpoint, foram geradas exceções distintas para cada tipo de breakpoint, se fosse software breakpoint a exceção gerada seria do tipo *STATUS_BREAKPOINT_INT* (0X80000003) e caso fosse um HBP seria *STATUS_SINGLE_STEP* (0X80000004), para quem ja trabalhou com anti debugger sabe que o primeiro é o responsável pela detecção de software breakpoint e o segundo para HBP.
+Antes de continuar a execução, abri a aba **Log** do x64dbg, cliquei com o botão direito e escolhi **Redirect Log**. Selecionei um arquivo `.txt` para gravar as novas mensagens.
 
-As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoints:
+Em seguida, configurei breakpoints de exceção e mensagens de log com os comandos abaixo:
 
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng8.png)
->
-
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng9.png)
->
-
-Esse compartamento é um forte indicio que nossos breakpoints estão sendos detectados, ótimo sinal!
-
-Eu queria confirmar se a falha ocorria exatamente no endereço onde havia colocado um breakpoint em kernel32!CheckRemoteDebuggerPresent. Para isso, é preciso distinguir duas informações: o código da exceção, que indica seu tipo, e o endereço da exceção, que indica onde ela ocorreu.
-
-Antes de continuar a execução, abri a aba de Log do x64dbg, cliquei com o botão direito e escolhi Redirect Log. Selecione um arquivo .txt. A partir desse momento, as novas mensagens do log serão gravadas nele.
-
-Usei o seguinte código para salvar o endereço qu ocorreu a exceção:
-
+```text
 SetExceptionBPX 80000003, all
 SetExceptionBreakpointLog 80000003, "CODIGO={x:ex.code()} ENDERECO={a:ex.addr()}"
 SetExceptionBPX 80000004, all
 SetExceptionBreakpointLog 80000004, "CODIGO={x:ex.code()} ENDERECO={a:ex.addr()}"
+```
 
-Porém ao executar o programa, depois de por um BP, a aplicação simplesmente fechava e nenhum log era salvo:
+O argumento `all` configura a captura de exceções de primeira e segunda chance. As mensagens registram o código e o endereço quando o breakpoint de exceção é atingido. As referências dos comandos estão na documentação do x64dbg: [SetExceptionBPX](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetExceptionBPX.html) e [SetExceptionBreakpointLog](https://help.x64dbg.com/en/latest/commands/conditional-breakpoint-control/SetExceptionBreakpointLog.html).
 
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng10.png)
->
+Porém, ao continuar a execução com o breakpoint na API, a aplicação encerrava sem que eu obtivesse o registro esperado do endereço da exceção. Os breakpoints estavam configurados como mostra a imagem:
 
-Se o x64dbg parar em uma exceção com o processo ainda ativo, digite exinfo antes de continuar ou encerrar a depuração. O comando mostrará ExceptionCode e ExceptionAddress. Se o processo já terminou, exinfo não recupera a exceção anterior;
+> ![Breakpoints habilitados no x64dbg: CheckRemoteDebuggerPresent em 0x7FFAD8B15180 e as exceções 0x80000003 e 0x80000004](/assets/images/enigma/eng10.png)
 
-E agora? Apelei para o sistema de logs do Windows, causei mais uma vez a exceção no debugger e fui ate o event log do windows verificar aonde foi que ocorreu a exceção:
+Se o x64dbg parar em uma exceção, o comando [`exinfo`](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) permite consultar os dados da última exceção recebida pelo debugger, incluindo `ExceptionCode` e `ExceptionAddress`. Vale registrar essa saída antes de continuar a execução. O comando depende das informações recebidas pelo debugger; ele não reconstrói uma exceção que não foi entregue a ele.
 
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng11.png)
->
+E agora? Apelei para o log de eventos do Windows. Repeti o teste e abri o **Visualizador de Eventos**, em **Logs do Windows > Aplicativo**, para procurar o registro da falha:
 
-Observando a imagem acima nota-se que o RVA que ocorreu a exceção foi 0x45180, esse rva bate com o rva do programa no debugger:
+> ![Evento 1000, Application Error, com exceção 0x80000003 em KERNEL32.DLL e deslocamento de falha 0x45180](/assets/images/enigma/eng11.png)
 
-> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng12.png)
->
+O evento identificou `KERNEL32.DLL` como o módulo com falha, o código de exceção `0x80000003` e o deslocamento `0x45180`. Esse deslocamento é relativo à base da DLL carregada, não à base do executável protegido. No x64dbg, a entrada de `kernel32!CheckRemoteDebuggerPresent` também aparecia no RVA `0x45180`:
 
-0x7FFAD8AD0000 + 0x45180 = 00007FFAD8B15180 - Portanto esta certo quanto ao nosso endereço de exceção.
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng12.png)
 
+Com a base de `kernel32.dll` daquela execução, a conta ficou:
 
-Assim, o registro de falha nos permitiu localizar a exceção, mesmo sem um log completo do x64dbg. Ele confirmou onde ocorreu a falha; isoladamente, não demonstrou que o Enigma inspecionou o breakpoint ou detectou os registradores de depuração.
+```text
+Base de kernel32.dll:  0x7FFAD8AD0000
+Deslocamento da falha:         0x45180
+Endereço da falha:     0x7FFAD8B15180
+```
+
+O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim, o registro de falha permitiu localizar a exceção mesmo sem o log esperado do x64dbg. Isso confirmou o local da falha nesse teste; ainda não demonstrava que o Enigma inspecionava o byte do breakpoint ou detectava os registradores de depuração.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
