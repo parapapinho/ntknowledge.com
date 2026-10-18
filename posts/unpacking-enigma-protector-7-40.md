@@ -55,6 +55,9 @@ As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoin
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng9.png)
 >
 
+Esse compartamento é um forte indicio que nossos breakpoints estão sendos detectados, ótimo sinal! Pois descobrimos uma nova técnica utilizada pelo packer.
+
+
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
 Investigando mais um pouco vi que o loader chamou **ntdll!NtSetInformationThread** a partir de **0x1002EACBE**. Na entrada da chamada da thread principal, observei:
