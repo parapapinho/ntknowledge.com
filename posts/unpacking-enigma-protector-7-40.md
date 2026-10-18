@@ -40,12 +40,12 @@ Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng6.png)
 >
 
-Bem como qualquer reversing guy, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada.
+Bem, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada.
 
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng7.png)
 >
 
-Para confirmar, passei a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API,podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
+Para confirmar, passei a observar a API e o valor de saída que ela escrevia. Um software breakpoint ou hardware nessa API, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`). Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
