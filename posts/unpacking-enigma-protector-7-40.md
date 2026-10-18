@@ -85,10 +85,8 @@ Observando a imagem acima nota-se que o RVA que ocorreu a exceção foi 0x45180,
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng12.png)
 >
 
+0x7FFAD8AD0000 + 0x45180 = 00007FFAD8B15180 - Portanto esta certo quanto ao nosso endereço de exceção.
 
-0x7FFB3E3A0000 + 0x45180 = 0x7FFB3E3E5180
-
-O resultado coincidiu com o endereço em que havíamos colocado o breakpoint. É importante usar a base da DLL da mesma execução: por causa do ASLR, copiar uma base de outra sessão pode produzir uma comparação errada.
 
 Assim, o registro de falha nos permitiu localizar a exceção, mesmo sem um log completo do x64dbg. Ele confirmou onde ocorreu a falha; isoladamente, não demonstrou que o Enigma inspecionou o breakpoint ou detectou os registradores de depuração.
 
