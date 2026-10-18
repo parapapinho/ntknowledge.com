@@ -40,11 +40,16 @@ Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng6.png)
 >
 
-Bem como qualquer reversing guy, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada. Para confirmar, passei a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API, antes de resolver a ocultação de thread, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
+Bem como qualquer reversing guy, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada.
+
+> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng7.png)
+>
+
+Para confirmar, passei a observar a API e o valor de saída que ela escreveu. Um breakpoint de software ou hardware nessa API,podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`) sem uma parada útil no IDA. Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
-O loader chamou `ntdll!NtSetInformationThread` a partir de `0x1002EACBE`. Na entrada da chamada da thread principal, observei:
+Investigando mais um pouco vi que o loader chamou **ntdll!NtSetInformationThread** a partir de **0x1002EACBE**. Na entrada da chamada da thread principal, observei:
 
 ```text
 RCX = -2       ; thread atual
@@ -52,7 +57,7 @@ RDX = 0x11     ; ThreadHideFromDebugger
 comprimento = 0
 ```
 
-Uma consulta externa encontrou a thread principal com `hidden=1` depois da inicialização. Ao desviar a chamada apenas na memória, `hidden` permaneceu `0` e o breakpoint em `CheckRemoteDebuggerPresent` passou a funcionar. O retorno do call em `0x1002EACC1` não testava o status.
+Uma consulta externa encontrou a thread principal com **hidden=1** depois da inicialização. Ao desviar a chamada apenas na memória, **hidden** permaneceu `igual a 0 e o breakpoint em **CheckRemoteDebuggerPresent** passou a funcionar. O retorno do call em **0x1002EACC1** não testava o status.
 
 A forma de repetir o desvio que usei nos ensaios posteriores foi trocar os três bytes iniciais da exportação **na memória do processo depurado**:
 
