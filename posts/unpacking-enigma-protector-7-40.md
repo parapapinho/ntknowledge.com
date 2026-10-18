@@ -32,7 +32,7 @@ A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-
 
 ## 2. Sendo detectado
 
-Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a lista inicial de imports continha **MessageBoxA**, mas um breakpoint nessa API não funcionou ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
+Primeiro, executei o programa no x64dbg.Logo surgiu a janela de **Debugger warning**, e a lista inicial de imports continha **MessageBoxA**, mas um breakpoint nessa API não funcionou ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
 
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng5.png)
 >
