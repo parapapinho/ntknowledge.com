@@ -55,8 +55,35 @@ As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoin
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng9.png)
 >
 
-Esse compartamento é um forte indicio que nossos breakpoints estão sendos detectados, ótimo sinal! Pois descobrimos uma nova técnica utilizada pelo packer.
+Esse compartamento é um forte indicio que nossos breakpoints estão sendos detectados, ótimo sinal! Pois descobrimos uma nova técnica utilizada pelo packer. 
 
+Eu queria confirmar se a falha ocorria exatamente no endereço onde havia colocado um breakpoint em kernel32!CheckRemoteDebuggerPresent. Para isso, é preciso distinguir duas informações: o código da exceção, que indica seu tipo, e o endereço da exceção, que indica onde ela ocorreu.
+
+Antes de continuar a execução, abra a aba Log do x64dbg, clique com o botão direito e escolha Redirect Log. Selecione um arquivo .txt. A partir desse momento, as novas mensagens do log serão gravadas nele.
+
+Na linha de comandos do x64dbg, execute:
+
+SetExceptionBPX 80000003, all
+SetExceptionBreakpointLog 80000003, "CODIGO={x:ex.code()} ENDERECO={a:ex.addr()}"
+SetExceptionBPX 80000004, all
+SetExceptionBreakpointLog 80000004, "CODIGO={x:ex.code()} ENDERECO={a:ex.addr()}"
+
+
+
+80000003 corresponde a STATUS_BREAKPOINT; 80000004, a STATUS_SINGLE_STEP. Neste experimento, eles apareceram, respectivamente, nas tentativas com breakpoint de software e de hardware.
+Isso não significa, por si só, que o packer detectou o breakpoint: os códigos descrevem as exceções observadas. Os comandos acima configuram o x64dbg para registrar o código com ex.code() e o endereço com ex.addr() quando receber essas exceções.
+
+Se o x64dbg parar em uma exceção com o processo ainda ativo, digite exinfo antes de continuar ou encerrar a depuração. O comando mostrará ExceptionCode e ExceptionAddress. Se o processo já terminou, exinfo não recupera a exceção anterior. No nosso teste com ThreadHideFromDebugger, o x64dbg não recebeu uma parada utilizável; por isso consultamos o registro de falha do Windows. O redirecionamento do Log também só consegue salvar eventos que chegam ao x64dbg.
+
+Por que o nosso log não mostrou o endereço?
+Esse método depende de a exceção chegar ao x64dbg. No nosso teste, o loader já havia chamado NtSetInformationThread com ThreadHideFromDebugger antes de alcançar CheckRemoteDebuggerPresent. Quando colocamos o breakpoint nessa API, o processo terminou sem uma parada utilizável no depurador. Por isso, o x64dbg não tinha um evento de exceção daquele ponto para gravar no arquivo.
+Naquela execução, recorremos ao registro de falha do Windows, que apontou KERNEL32.DLL+0x45180. Com a base da DLL correspondente à execução, a conta foi:
+
+0x7FFB3E3A0000 + 0x45180 = 0x7FFB3E3E5180
+
+O resultado coincidiu com o endereço em que havíamos colocado o breakpoint. É importante usar a base da DLL da mesma execução: por causa do ASLR, copiar uma base de outra sessão pode produzir uma comparação errada.
+
+Assim, o registro de falha nos permitiu localizar a exceção, mesmo sem um log completo do x64dbg. Ele confirmou onde ocorreu a falha; isoladamente, não demonstrou que o Enigma inspecionou o breakpoint ou detectou os registradores de depuração.
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
