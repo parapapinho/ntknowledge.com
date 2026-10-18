@@ -30,9 +30,9 @@ O instalador do Enigma inclui um executável de teste, então utilizei esse arqu
 
 A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-lo e verificar se ocorre algum problema na execução. Para os testes de debugging, utilizei o IDA Pro 9.4 e o x64dbg, ambos sem plugins de anti-anti-debugging.
 
-## 2. A primeira reação: aviso de debugger
+## 2. Sendo detectado
 
-Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a lista inicial de imports continha `MessageBoxA`, mas um breakpoint nessa API não foi disparado ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
+Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a lista inicial de imports continha **MessageBoxA**, mas um breakpoint nessa API não funcionou ao surgir a mensagem. Isso mostrou que uma importação estática não identifica necessariamente a função usada para exibir a mensagem.
 
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng5.png)
 >
@@ -40,12 +40,14 @@ Primeiro, executei o arquivo no x64dbg. Surgiu a janela **Debugger warning** e a
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng6.png)
 >
 
-Bem, eu tentei fazer um return until code, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string `CheckRemoteDebuggerPresent`, ainda insuficiente para provar uma chamada.
+Bem, eu tentei fazer um *return until code*, mas não funcionou, de todo modo eu pausei a execução e na pilha havia a string **c**, a Microsoft define essa API assim: "Determines whether the specified process is being debugged." Então temos nossa primeira API antidebugging do Enigma, isso é muito bom, pelo menos não estou tão perdido.
 
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng7.png)
 >
 
-Para confirmar, passei a observar a API e o valor de saída que ela escrevia. Um software breakpoint ou hardware nessa API, podia terminar em `STATUS_BREAKPOINT` (`0x80000003`) ou `STATUS_SINGLE_STEP` (`0x80000004`). Naquele experimento, isso **não provou** que o Enigma verificava o byte `INT3`.
+Para confirmar o uso de **CheckRemoteDebuggerPresent**, pensei em por um software breakpoint ou hardware nessa API, e o que aconteceu chamou minha atenção. Ao executar o programa usando as duas opções de breakpoint, foram geradas exceções distintas para cada tipo de breakpoint, se fosse software breakpoint a exceção gerada seria do tipo *STATUS_BREAKPOINT_INT* (0X80000003) e caso fosse um HBP seria *STATUS_SINGLE_STEP* (0X80000004), para quem ja trabalhou com anti debugger saber, que o primeiro é exceção para detecção de software breakpoint e o segundo para HBP.
+
+As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoints
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
