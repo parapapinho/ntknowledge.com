@@ -47,7 +47,13 @@ Bem, eu tentei fazer um *return until code*, mas não funcionou, de todo modo eu
 
 Para confirmar o uso de **CheckRemoteDebuggerPresent**, pensei em por um software breakpoint ou hardware nessa API, e o que aconteceu chamou minha atenção. Ao executar o programa usando as duas opções de breakpoint, foram geradas exceções distintas para cada tipo de breakpoint, se fosse software breakpoint a exceção gerada seria do tipo *STATUS_BREAKPOINT_INT* (0X80000003) e caso fosse um HBP seria *STATUS_SINGLE_STEP* (0X80000004), para quem ja trabalhou com anti debugger saber, que o primeiro é exceção para detecção de software breakpoint e o segundo para HBP.
 
-As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoints
+As imagens a seguir demonstram as exceções quando tentamos parar nos breakpoints:
+
+> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng8.png)
+>
+
+> ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng9.png)
+>
 
 ## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
