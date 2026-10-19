@@ -155,21 +155,37 @@ Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste.
 
 ## 4. Encontrando o OEP do programa
 
-Depois do bypass de CheckRemoteDebuggerPresent, devemos seguir ao Original Entry Point(OEP) do programa, para podermos depois no fim repararmos a IAT. O importante ao analisar packers é que cada packer mantém uma certa similaridade com outros quando vamos realizar saltos para o OEP. Infelizmente não há uma técnica única e mais eficar para fazer isso, então é de fato um trabalho de tracing e investigação. Como não vale a pena mostrar todo o caminho, e o nos interessa é apenas o trecho final aonde acontece o salto para o OEP.
+Depois de contornar a checagem de `CheckRemoteDebuggerPresent`, o próximo passo foi localizar o **Original Entry Point (OEP)** do programa. É nesse ponto que quero parar para fazer o dump e, depois, reconstruir a IAT.
 
-Colocando um HBP em 0x1002EAF78 paramos no ponto exato:
+Quem já analisou packers acaba reconhecendo alguns padrões na transferência de controle para o código original. Ainda assim, não existe uma técnica única que funcione em todos os casos: encontrar esse ponto exige tracing e investigação. Para não alongar o tutorial com todo o rastreio, vou mostrar o trecho final que encontrei nesta amostra.
 
-> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng21.png)
+Coloquei um breakpoint de execução por hardware em `0x1002EAF78` e parei na sequência que prepara o salto:
 
-Para quem ja deseja criar um script de unpacking a imagem abaixo ilustra o byte pattern que deve ser buscado:
+> ![Sequência em 0x1002EAF78 que carrega RAX, restaura RSP e executa jmp rax em 0x1002EAF80](/assets/images/enigma/eng21.png)
 
-> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng22.png)
+```asm
+0x1002EAF78  mov rax, qword ptr [rbp-20h]
+0x1002EAF7C  mov rsp, qword ptr [rbp-8]
+0x1002EAF80  jmp rax
+```
 
-Passando pelo JMP EAX, caimos exatamente no OEP do programa.
+A primeira instrução carrega em `RAX` o endereço de destino. A segunda restaura `RSP` a partir do valor salvo em `[RBP-8]`. Por fim, o `jmp rax` transfere o controle para esse destino. O breakpoint está no início da sequência; o salto propriamente dito ocorre em `0x1002EAF80`.
 
-> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng23.png)
+Para quem já está pensando em automatizar a busca, os bytes dessa sequência são:
 
-Se a imagem for carregada em outra base, o RVA correspondente do salto é `0x2EAF80` e o do OEP é `0x162B0`.
+```text
+48 8B 45 E0 48 8B 65 F8 FF E0
+```
+
+> ![Byte pattern da sequência anterior ao OEP: 48 8B 45 E0 48 8B 65 F8 FF E0](/assets/images/enigma/eng22.png)
+
+Esse pattern serve como ponto de partida para localizar a sequência nesta amostra. Encontrar os mesmos bytes em outro executável não garante que se trate do salto para o OEP: ainda é preciso acompanhar a execução e conferir o destino.
+
+Ao executar o `jmp rax`, cheguei a `0x1000162B0`, o OEP identificado para o aplicativo de teste:
+
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng23.png)
+
+Nesta execução, a imagem estava carregada na base `0x100000000`. Assim, o RVA do salto é `0x2EAF80`, e o do OEP é `0x162B0`. Se essa mesma imagem for carregada em outra base, os endereços virtuais devem ser recalculados como `VA = base da imagem + RVA`.
 
 ## 8. Dump no OEP: ainda falta reconstruir o PE
 
