@@ -155,26 +155,6 @@ Na primeira amostra, um watchpoint em leitura/escrita no `BOOL` mostrou uma leit
 
 Alterei apenas a resposta da API entre os dois rastreios. Isso confirma a relação causal para este caminho, sem exigir que se desmonte toda a VM.
 
-## 5. Quando `Check debugger in runtime` também está ligado
-
-Criei outro controle com `CheckAtRuntime=True`, deixando as demais opções iguais. Após atravessar a primeira checagem e alcançar o OEP, uma thread auxiliar voltou a chamar `CheckRemoteDebuggerPresent`. O controle com runtime desligado permaneceu aberto por mais de 20 segundos sem nova chamada. Quando deixei a consulta posterior receber a resposta real `BOOL=1`, o processo com runtime ligado encerrou com código `1` poucos segundos após o OEP.
-
-No segundo executável protegido, `teste_protectd2.EXE`, também com runtime ativado, o entry point protegido foi `0x1012AFDF8` e o OEP continuou `0x1000162B0`. Para cobrir as chamadas repetidas, em vez de editar cada `BOOL` manualmente, apliquei no processo depurado um stub na exportação de `kernel32` **antes** de executar o loader:
-
-```asm
-kernel32!CheckRemoteDebuggerPresent
-antes:  48 FF 25 71 47 04 00
-depois: 31 C0 89 02 FF C0 C3
-        xor eax,eax
-        mov dword ptr [rdx],eax   ; BOOL = FALSE
-        inc eax                   ; retorno BOOL = TRUE
-        ret
-```
-
-Junto com o stub de `NtSetInformationThread`, esse patch foi verificado por leitura dos bytes de volta. A checagem inicial retornou `RAX=1, BOOL=0`; depois do OEP, uma thread auxiliar fez chamadas repetidas e recebeu a mesma resposta. Removidos os breakpoints, a janela principal `teste_protectd2` abriu e respondeu sob o IDA. O script IDAPython local `analysis/bypass_runtime_ida.py` exige que o processo esteja pausado no entry point protegido, confere nome do arquivo, símbolos e bytes anteriores e modifica somente sua memória.
-
-Na primeira amostra, também confirmei a abertura da janela `teste_protectd` sob o IDA e sua resposta após mais de dez segundos. Esse era meu critério de sucesso para o bypass de inicialização. As funções internas da aplicação não foram exercitadas.
-
 ### Atalho usado no x64dbg para a primeira amostra
 
 Para repetir o teste do OEP e da IAT no x64dbg, também usei o script local `analysis/patch_debuggee_apis.py` com o processo parado no entry point do packer:
