@@ -105,24 +105,38 @@ A imagem a seguir ilustra o resultado obtido através da análise da *thread* pr
 
 > ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng14.png)
 
-Na amostra, a consulta retornou hidden=1 para a thread principal. Isso confirmou que ela estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em ntdll!NtSetInformationThread e observei o loader chamá-la com RCX=-2 (thread atual) e RDX=0x11 (ThreadHideFromDebugger). 
+Na amostra, a consulta retornou hidden=1 para a thread principal. Isso confirmou que ela estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em **ntdll!NtSetInformationThread** e observei o loader chamá-la com RCX=-2 (thread atual) e RDX=0x11 (ThreadHideFromDebugger). 
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng12.png)
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng15.png)
 
-Ao impedir essa chamada em um teste controlado, o leitor passou a retornar hidden=0, e o breakpoint em CheckRemoteDebuggerPresent parou normalmente. Essa sequência ligou o estado observado à chamada do loader.
+Então devemos anular essa chamada, para que possamos por um breakpoint em *CheckRemoteDebuggerPresent*.
 
-
-
-
-A forma de repetir o desvio que usei nos ensaios posteriores foi trocar os três bytes iniciais da exportação **na memória do processo depurado**:
+Podemos alterar de várias formas a chamada para *NtSetInformationThread*, porém achei melhor fazer assim:
 
 ```asm
 ntdll!NtSetInformationThread
 antes:  4C 8B D1
 depois: 31 C0 C3      ; xor eax,eax / ret
 ```
+Com essa alteração conseguimos finalmente por um breakpoint em *CheckRemoteDebuggerPresent* e verificar se podemos arrancar o debugger agora sem ser detectado. Então reiniciamos o programa e colocamos dois hardware breakpoints em NtSetInformationThread e CheckRemoteDebuggerPresent, e damos run.
 
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng16.png)
 
+A primeira parada e a etapa de patchear NtSetInformationThread:
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng17.png)
+
+Em seguida deixamos correr, até pararmos em CheckRemoteDebuggerPresent:
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng18.png)
+
+Aqui nesse ponto devemos anotar o endereço de RDX, que no meu caso é 023FFD08, e executamos até o próximo ponto de retorno, chegando nesse ponto devemos alterar o valor de 023FFD08 para 00:
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng19.png)
+
+Por fim executamos o programa e é possível notar que conseguimos arrancar o programa, bypassando os alertas anti debugging do mesmo:
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng20.png)
 
 ## 4. A checagem inicial do Check-Up
 
