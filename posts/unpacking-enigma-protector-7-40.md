@@ -93,13 +93,17 @@ Endereço da falha:     0x7FFAD8B15180
 
 O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim, o registro de falha permitiu localizar a exceção mesmo sem o log esperado do x64dbg. Isso confirmou o local da falha nesse teste.
 
-## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
+## 3. Primeiro obstáculo: ThreadHideFromDebugger
 
-Os breakpoints em CheckRemoteDebuggerPresent provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
+Os breakpoints em *CheckRemoteDebuggerPresent* provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
 
-Para averiguar isso, eu criei um script em python que pegasse o ID da thread principal na aba Threads do debugger. O programa abrirá essa thread com OpenThread e chamará NtQueryInformationThread, passando a classe ThreadHideFromDebugger (0x11). Essa consulta devolve um byte: 1 indica que a thread está oculta; 0, que não está. 
+Para averiguar isso, eu criei um script em python que verifica através do ID de uma thread o modo ativo. O script então abrirá essa thread com **OpenThread** e chamará **NtQueryInformationThread**, passando a classe *ThreadHideFromDebugger* (0x11). Essa consulta devolve um byte: 1 indica que a thread está oculta; 0, que não está. 
 
-O valor só deve ser interpretado quando a chamada retorna sucesso. Nosso script apenas consultava o estado da thread — não injetava código nem modificava o processo protegido.
+A imagem a seguir ilustra o resultado obtido através da análise da *thread* principal em execução:
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng13.png)
+
+> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng14.png)
 
 Na amostra, a consulta retornou hidden=1 para a thread principal. Isso confirmou que ela estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em ntdll!NtSetInformationThread e observei o loader chamá-la com RCX=-2 (thread atual) e RDX=0x11 (ThreadHideFromDebugger). 
 
