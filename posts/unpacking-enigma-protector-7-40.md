@@ -151,76 +151,25 @@ Por fim, continuei a execução e a janela do aplicativo abriu sob o debugger:
 
 > ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng20.png)
 
-Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta; alterar uma resposta manualmente não cobre as chamadas seguintes.
+Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. Mas agora sabemos como burlar.
 
-## 4. A checagem inicial do Check-Up
+## 7. Encontrando o OEP do programa
 
-Com a thread visível, o breakpoint em `kernel32!CheckRemoteDebuggerPresent` disparou. Na amostra inicial, a chamada recebeu:
+Depois do bypass de CheckRemoteDebuggerPresent, devemos seguir ao Original Entry Point(OEP) do programa, para podermos depois no fim repararmos a IAT. O importante ao analisar packers é que cada packer mantém uma certa similaridade com outros quando vamos realizar saltos para o OEP. Infelizmente não há uma técnica única e mais eficar para fazer isso, então é de fato um trabalho de tracing e investigação. Como não vale a pena mostrar todo o caminho, e o nos interessa é apenas o trecho final aonde acontece o salto para o OEP.
 
-```text
-RCX = -1                 ; processo atual
-RDX = 0x23FFD08          ; endereço de um BOOL de saída
-[RSP] = 0x100E7B604     ; retorno ao código protegido, nesta execução
-```
+Colocando um HBP em 0x1002EAF78 paramos no ponto exato:
 
-No retorno, `RAX=1` significava **que a chamada à API teve sucesso**. A resposta sobre o depurador estava nos quatro bytes do **endereço de saída salvo na entrada** (`0x23FFD08` nesta execução): `01 00 00 00`. O registrador `RDX` é volátil e não precisa conservar esse ponteiro após o retorno. Depois de trocar somente aqueles quatro bytes para `00 00 00 00`, mantendo `RAX=1`, o loader seguiu até o OEP. Alterar apenas `RAX` seria interpretar errado a interface dessa API.
+> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng21.png)
 
-### Roteiro manual no debugger
+Para quem ja deseja criar um script de unpacking a imagem abaixo ilustra o byte pattern que deve ser buscado:
 
-1. Pare antes do loader e neutralize `NtSetInformationThread` como na seção anterior.
-2. Coloque um breakpoint de execução em `kernel32!CheckRemoteDebuggerPresent` e outro no OEP candidato `0x1000162B0`. O endereço de `kernel32` deve vir dos símbolos do processo depurado.
-3. Na entrada da API, anote o valor de `RDX` e o endereço de retorno em `[RSP]`. Coloque um breakpoint temporário nesse endereço de retorno (`0x100E7B604` nesta execução) e prossiga até ele. Se for de hardware, libere antes um dos poucos registradores de breakpoint, se necessário.
-4. Confira `RAX=1` e o `DWORD` no **endereço que você salvou de `RDX` na entrada**. No meu caso, mude `1` para `0` e prossiga.
-5. Confira se o breakpoint do OEP dispara e se os bytes no endereço correspondem ao aplicativo original.
+> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng22.png)
 
-O próprio `KERNELBASE` chamou `ntdll!NtQueryInformationProcess` com classe `7` (`ProcessDebugPort`) dentro da implementação de `CheckRemoteDebuggerPresent`. Isso compõe **a mesma** checagem; não contei como uma segunda sondagem independente do Enigma.
+Passando pelo JMP EAX, caimos exatamente no OEP do programa.
 
-Para separar efeito da opção de coincidência do runtime, gerei dois builds de controle a partir do mesmo projeto, alterando somente `CheckUp/AntiDebugger/Enabled` e o caminho obrigatório de saída. `CheckRemoteDebuggerPresent` foi observada antes do OEP no build **ligado**, e não no **desligado**. Assim atribuí essa chamada inicial ao checkbox nos controles comparáveis. Os projetos e executáveis de controle foram mantidos no laboratório local.
+> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng23.png)
 
-### Onde o resultado virou uma decisão
-
-Na primeira amostra, um watchpoint em leitura/escrita no `BOOL` mostrou uma leitura real em `0x10066AEDC` (`mov eax,[rax]`), dentro do interpretador da máquina virtual do loader. A instrução virtual em `0x100E851AE` (`opcode 0x5B`, índice `2009`) escolheu dois destinos:
-
-| `BOOL` | Próximo índice virtual | Caminho observado |
-| ---: | ---: | --- |
-| `1` | `22355` | Aviso de debugger; OEP não alcançado |
-| `0` | `21761` | Loader prosseguiu; OEP alcançado |
-
-Alterei apenas a resposta da API entre os dois rastreios. Isso confirma a relação causal para este caminho, sem exigir que se desmonte toda a VM.
-
-### Atalho usado no x64dbg para a primeira amostra
-
-Para repetir o teste do OEP e da IAT no x64dbg, também usei o script local `analysis/patch_debuggee_apis.py` com o processo parado no entry point do packer:
-
-```powershell
-python analysis\patch_debuggee_apis.py <PID_DO_DEPURADO>
-```
-
-O script exige o caminho exato de `teste_protectd.EXE`, confere os bytes originais das duas exportações, escreve os dois stubs acima e relê os bytes. Ele foi ensaiado no processo depurado desta máquina. Para localizar as APIs, usa as bases das DLLs no processo Python; se as bases diferirem no depurado, a conferência dos bytes remotos falhará. Os bytes de origem também dependem desta versão do Windows. Nesses casos, resolva novamente os símbolos no próprio debugger antes de repetir o patch.
-
-
-## 7. Do loader ao OEP: encontrar o “magic jump”
-
-Com o bypass aplicado à primeira amostra e o processo parado no entry point do packer, usei breakpoint de execução por hardware no x64dbg:
-
-```text
-bphws 0x1002EAF80, x, 1
-run
-```
-
-No ponto de parada, o disassembly foi:
-
-```asm
-0x1002EAF78  mov rax, qword ptr [rbp-20h]
-0x1002EAF7C  mov rsp, qword ptr [rbp-8]
-0x1002EAF80  jmp rax
-```
-
-`RAX` continha `0x1000162B0`. Removi esse breakpoint temporário com `bphwc 0x1002EAF80` e usei **F7**. O `RIP` passou diretamente a `0x1000162B0`, onde os bytes começavam com `48 8D 64 24 D8` (`lea rsp,[rsp-28h]`). Os primeiros 64 bytes coincidiam com o original. Portanto, **`0x1002EAF80` é o salto final ao OEP desta primeira amostra**. Se a imagem for carregada em outra base, o RVA correspondente do salto é `0x2EAF80` e o do OEP é `0x162B0`.
-
-Durante a busca, o `jmp rax` em `0x10129E3D4`, dentro do stub do entry point protegido, pareceu promissor após decodificação estática, mas seu breakpoint não disparou no caminho observado. Não é o magic jump confirmado. O retorno da ponte da VM em `0x100669F7B` também voltou a outro estágio, não diretamente ao OEP.
-
-Breakpoints de hardware evitam gravar `INT3` no código; no x64dbg, `bphws endereço, x, 1` configura execução por hardware. Eles usam os registradores de debug, que são poucos: se já houver outros breakpoints salvos, anote-os antes de liberar um slot e restaure-os depois. [Referência do x64dbg](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetHardwareBreakpoint.html).
+Se a imagem for carregada em outra base, o RVA correspondente do salto é `0x2EAF80` e o do OEP é `0x162B0`.
 
 ## 8. Dump no OEP: ainda falta reconstruir o PE
 
@@ -267,13 +216,6 @@ Em termos de PE, o procedimento foi:
 
 O parser PE encontrou oito descritores e 425 imports, com nomes, ordem e posições ILT/IAT iguais aos do original, sem avisos. As demais seções do aplicativo coincidiram com o original nas áreas virtuais; `.idata` tem outro arranjo de bytes porque as strings foram reconstruídas, mas a interpretação dos imports é a mesma. O arquivo recuperado tem 2.768.896 bytes e SHA-256 `2d6c90b631af0c335e359c6c2b09c34cc69e1432016aa53071eb01aed8f88392`. Fora do debugger, ele iniciou e abriu a janela **Notepad** com controle `Edit`.
 
-## 11. O que este resultado comprova — e o que ainda falta
-
-**Confirmado nos caminhos executados:** o loader oculta thread via `NtSetInformationThread(0x11)`; a opção Check-Up acrescenta a consulta inicial a `CheckRemoteDebuggerPresent` nos builds de controle; a VM consome o `BOOL`; com runtime ligado a consulta se repete em thread auxiliar; os stubs em memória permitiram abrir os dois protegidos sob o debugger; o primeiro build passa por `0x1002EAF80: jmp rax` para o OEP; e seus 425 imports puderam ser reconstruídos e validados.
-
-**Limite essencial:** o executável recuperado dependeu do `test64.exe` **sem proteção** para os 18 aliases, os grupos e layout da IAT, seções incompletas e metadados PE. É uma demonstração controlada nesta amostra conhecida, não um unpacker genérico que recupere qualquer arquivo sem original. O arquivo com somente a IAT reparada não foi validado como executável autônomo. A abertura da janela prova inicialização e interface, não todas as funções do programa. Também não afirmo ter mapeado todas as possíveis técnicas antidebugger da versão 7.40 ou o intervalo exato da checagem em runtime.
-
-O x64dbg foi deixado pausado no OEP após o experimento, e seus três breakpoints de hardware que já existiam (`0x1000162AF`, `0x100362941`, `0x100F5CA44`) foram restaurados.
 
 ---
 
