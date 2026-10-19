@@ -153,7 +153,7 @@ Por fim, continuei a execução e a janela do aplicativo abriu sob o debugger:
 
 Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. Mas agora sabemos como burlar.
 
-## 7. Encontrando o OEP do programa
+## 4. Encontrando o OEP do programa
 
 Depois do bypass de CheckRemoteDebuggerPresent, devemos seguir ao Original Entry Point(OEP) do programa, para podermos depois no fim repararmos a IAT. O importante ao analisar packers é que cada packer mantém uma certa similaridade com outros quando vamos realizar saltos para o OEP. Infelizmente não há uma técnica única e mais eficar para fazer isso, então é de fato um trabalho de tracing e investigação. Como não vale a pena mostrar todo o caminho, e o nos interessa é apenas o trecho final aonde acontece o salto para o OEP.
 
