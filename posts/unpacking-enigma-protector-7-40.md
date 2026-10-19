@@ -107,7 +107,7 @@ Em seguida, executei o script para consultar essa thread:
 
 > ![Execução de query_hidden_thread.py para o TID 8196, com NTSTATUS=0x00000000 e hidden=1](/assets/images/enigma/eng14.png)
 
-A consulta retornou `NTSTATUS=0x00000000` e `hidden=1`. Isso confirmou que a thread principal estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em `ntdll!NtSetInformationThread` e observei a chamada do loader com `RCX=-2`, o pseudo-handle da thread atual, e `RDX=0x11`, correspondente a `ThreadHideFromDebugger`:
+A consulta retornou `NTSTATUS=0x00000000` e `hidden=1`. Isso confirmou que a thread principal estava oculta naquele momento. Na execução seguinte, coloquei um breakpoint em `ntdll!NtSetInformationThread` e observei a chamada do loader com `RCX=-2`, o pseudo-handle da thread atual, e `RDX=0x11`, correspondente a `ThreadHideFromDebugger`:
 
 > ![Entrada de NtSetInformationThread com RCX=FFFFFFFFFFFFFFFE e RDX=0x11](/assets/images/enigma/eng15.png)
 
