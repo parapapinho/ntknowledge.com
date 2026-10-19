@@ -93,50 +93,65 @@ Endereço da falha:     0x7FFAD8B15180
 
 O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim, o registro de falha permitiu localizar a exceção mesmo sem o log esperado do x64dbg. Isso confirmou o local da falha nesse teste.
 
-## 3. Primeiro obstáculo: ThreadHideFromDebugger
+## 3. Primeiro obstáculo: `ThreadHideFromDebugger`
 
-Os breakpoints em *CheckRemoteDebuggerPresent* provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
+Os breakpoints em `CheckRemoteDebuggerPresent` provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
 
-Para averiguar isso, eu criei um script em python que verifica através do ID de uma thread o modo ativo. O script então abrirá essa thread com **OpenThread** e chamará **NtQueryInformationThread**, passando a classe *ThreadHideFromDebugger* (0x11). Essa consulta devolve um byte: 1 indica que a thread está oculta; 0, que não está. 
+Para averiguar isso, criei um script em Python que recebe o ID de uma thread e consulta se ela está oculta do debugger. O script abre um handle com `OpenThread` e chama `NtQueryInformationThread`, passando a classe `ThreadHideFromDebugger` (`0x11`). Nessa consulta, o buffer de saída recebe um `BOOLEAN` de um byte: `1` indica que a thread está oculta; `0`, que não está. Esse resultado deve ser interpretado depois de conferir o `NTSTATUS` retornado pela chamada. A definição dessa classe pode ser consultada nos [headers do projeto phnt](https://github.com/winsiderss/phnt/blob/master/ntpsapi.h).
 
-A imagem a seguir ilustra o resultado obtido através da análise da *thread* principal em execução:
+Primeiro, identifiquei a thread principal no x64dbg. Naquela execução, seu ID era `8196`:
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng13.png)
+> ![Lista de threads no x64dbg com a thread principal, de ID 8196, em destaque](/assets/images/enigma/eng13.png)
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng14.png)
+Em seguida, executei o script para consultar essa thread:
 
-Na amostra, a consulta retornou hidden=1 para a thread principal. Isso confirmou que ela estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em **ntdll!NtSetInformationThread** e observei o loader chamá-la com RCX=-2 (thread atual) e RDX=0x11 (ThreadHideFromDebugger). 
+> ![Execução de query_hidden_thread.py para o TID 8196, com NTSTATUS=0x00000000 e hidden=1](/assets/images/enigma/eng14.png)
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng15.png)
+A consulta retornou `NTSTATUS=0x00000000` e `hidden=1`. Isso confirmou que a thread principal estava oculta naquele momento, mas ainda não identificava quem a havia ocultado. Na execução seguinte, coloquei um breakpoint em `ntdll!NtSetInformationThread` e observei a chamada do loader com `RCX=-2`, o pseudo-handle da thread atual, e `RDX=0x11`, correspondente a `ThreadHideFromDebugger`:
 
-Então devemos anular essa chamada, para que possamos por um breakpoint em *CheckRemoteDebuggerPresent*.
+> ![Entrada de NtSetInformationThread com RCX=FFFFFFFFFFFFFFFE e RDX=0x11](/assets/images/enigma/eng15.png)
 
-Podemos alterar de várias formas a chamada para *NtSetInformationThread*, porém achei melhor fazer assim:
+Então eu precisava impedir essa chamada de ocultar a thread, para conseguir parar em `CheckRemoteDebuggerPresent`.
+
+Havia várias formas de fazer isso. Escolhi substituir os três primeiros bytes de `NtSetInformationThread`, **na memória do processo depurado**, por um retorno imediato de sucesso:
 
 ```asm
 ntdll!NtSetInformationThread
-antes:  4C 8B D1
+antes:  4C 8B D1      ; mov r10,rcx
 depois: 31 C0 C3      ; xor eax,eax / ret
 ```
-Com essa alteração conseguimos finalmente por um breakpoint em *CheckRemoteDebuggerPresent* e verificar se podemos arrancar o debugger agora sem ser detectado. Então reiniciamos o programa e colocamos dois hardware breakpoints em NtSetInformationThread e CheckRemoteDebuggerPresent, e damos run.
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng16.png)
+O `xor eax,eax` prepara o retorno `STATUS_SUCCESS` (`0`), e o `ret` devolve o controle ao chamador sem executar a chamada de sistema. Esse patch não filtra a classe `0x11`: enquanto estiver aplicado, ele faz qualquer chamada que passe por essa entrada retornar sucesso sem realizar a operação.
 
-A primeira parada e a etapa de patchear NtSetInformationThread:
+A ordem aqui importa: o patch precisa ser aplicado **antes de a thread ser ocultada**. Ele não desfaz uma ocultação que já ocorreu. Como a alteração é feita apenas na memória, também precisa ser reaplicada após reiniciar o processo.
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng17.png)
+Reiniciei o programa, configurei dois breakpoints de execução por hardware — um em `NtSetInformationThread` e outro em `CheckRemoteDebuggerPresent` — e continuei a execução:
 
-Em seguida deixamos correr, até pararmos em CheckRemoteDebuggerPresent:
+> ![Breakpoints habilitados em kernel32.CheckRemoteDebuggerPresent e na entrada de ntdll identificada como ZwSetInformationThread](/assets/images/enigma/eng16.png)
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng18.png)
+Nas capturas, o x64dbg identifica a entrada de `ntdll` como `ZwSetInformationThread`. Esse é o rótulo exibido no endereço usado para o patch.
 
-Aqui nesse ponto devemos anotar o endereço de RDX, que no meu caso é 023FFD08, e executamos até o próximo ponto de retorno, chegando nesse ponto devemos alterar o valor de 023FFD08 para 00:
+Na primeira parada, substituí os bytes na entrada da função:
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng19.png)
+> ![Entrada de NtSetInformationThread alterada em memória para xor eax,eax seguido de ret](/assets/images/enigma/eng17.png)
 
-Por fim executamos o programa e é possível notar que conseguimos arrancar o programa, bypassando os alertas anti debugging do mesmo:
+Em seguida, continuei a execução. Dessa vez, consegui parar em `CheckRemoteDebuggerPresent`:
 
-> ![Disassembly de kernel32.CheckRemoteDebuggerPresent no endereço 0x7FFAD8B15180, com RVA 0x45180](/assets/images/enigma/eng20.png)
+> ![Parada em kernel32.CheckRemoteDebuggerPresent com RCX=-1 e RDX=0x23FFD08](/assets/images/enigma/eng18.png)
+
+Nesse ponto, anotei o **valor de `RDX`**, que era `0x23FFD08`. Ele apontava para o `BOOL` de saída em que a API escreveria a resposta sobre a presença do debugger. Esse `BOOL` ocupa quatro bytes, diferentemente do `BOOLEAN` de um byte usado na consulta anterior.
+
+Continuei até o `ret` mostrado na imagem abaixo. Nesse ponto, a API já havia escrito `01 00 00 00` no endereço salvo, indicando a presença do debugger. Antes de retornar ao chamador, alterei esses quatro bytes para `00 00 00 00`:
+
+> ![Parada no ret de CheckRemoteDebuggerPresent em KERNELBASE, com o BOOL em 0x23FFD08 contendo 01 00 00 00 antes da alteração](/assets/images/enigma/eng19.png)
+
+É importante guardar o ponteiro na entrada da API: `RDX` é volátil e pode ter outro valor ao final da chamada. A alteração é feita no conteúdo do endereço salvo, não no registrador. O retorno de sucesso da API deve ser preservado: conforme a [documentação de CheckRemoteDebuggerPresent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent), o valor retornado indica se a consulta teve sucesso; a resposta sobre o debugger fica no `BOOL` de saída.
+
+Por fim, continuei a execução e a janela do aplicativo abriu sob o debugger:
+
+> ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng20.png)
+
+Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta; alterar uma resposta manualmente não cobre as chamadas seguintes.
 
 ## 4. A checagem inicial do Check-Up
 
