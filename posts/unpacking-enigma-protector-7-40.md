@@ -10,32 +10,32 @@ A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a ex
 
 ## 1. Preparando o executável
 
-Para começar, utilizei a versão 7.40 do Enigma.
+Para começar, utilizei a versão x64 7.40 do Enigma.
 
 > ![Janela About do Enigma Protector x64 7.40, build 20230424](/assets/images/enigma/eng1.png)
->
 
 É possível notar que o Enigma possui diversas opções de configuração:
 
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng2.png)
->
 
 Para este estudo, foquei nas opções de anti-debugging e de emulação de APIs. As imagens abaixo mostram as configurações utilizadas:
 
 > ![Opções de anti-debugging ativadas, incluindo checagem em runtime e mensagem antes do encerramento](/assets/images/enigma/eng3.png)
->
+
 > ![Import Protection com Emulate WinAPI functions ativado e Redirect WinAPI functions desativado](/assets/images/enigma/eng4.png)
 
-O instalador do Enigma inclui um executável de teste, então utilizei esse arquivo como exemplo. Protegi o executável com as configurações das imagens acima e parti para o debugging.
+O instalador do Enigma inclui um executável de teste, o `test64.exe`, então utilizei esse arquivo como exemplo. Protegi o executável com as configurações das imagens acima e parti para o debugging. Mantive o original sem proteção para comparar o código e as estruturas PE ao longo da análise.
 
-A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-lo e verificar se ocorre algum problema na execução. Para os testes de debugging, utilizei o IDA Pro 9.4 e o x64dbg, ambos sem plugins de anti-anti-debugging.
+A primeira coisa que eu gosto de fazer ao debugar qualquer programa é executá-lo e verificar se ocorre algum problema na execução. Para os testes de debugging, utilizei o IDA Pro 9.4 e o x64dbg, ambos sem plugins de anti-anti-debugging. Na etapa de reconstrução, usei o Scylla x64 e o PE-bear.
+
+Os endereços das capturas pertencem às respectivas sessões. Ao repetir o procedimento, resolva as APIs no seu processo e confira a base dos módulos; os endereços absolutos podem mudar.
 
 ## 2. Sendo detectado
 
 Primeiro, executei o programa no x64dbg. Logo surgiu a janela **Debugger warning**. A lista inicial de imports continha `MessageBoxA`, mas o breakpoint que coloquei nessa API não foi atingido antes de o aviso aparecer. Só a presença da função na tabela de imports não era suficiente para identificar o caminho usado para exibir aquela mensagem.
 
 > ![Aviso Debugger warning informando que o programa não será executado enquanto houver um debugger ativo](/assets/images/enigma/eng5.png)
->
+
 > ![Lista de imports no x64dbg com user32.MessageBoxA em destaque](/assets/images/enigma/eng6.png)
 
 Bem, tentei retornar ao código do programa pelo debugger, mas não consegui. Então pausei a execução e encontrei, na visualização da pilha, um ponteiro para a string `CheckRemoteDebuggerPresent`. Segundo a [documentação da Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent), essa API verifica se o processo especificado está sendo depurado. Era uma boa pista de uma possível checagem anti-debugging, embora a string, sozinha, ainda não comprovasse uma chamada. Pelo menos eu já tinha por onde começar.
@@ -49,7 +49,7 @@ Esses códigos correspondem a exceções de breakpoint e de single-step, respect
 As imagens abaixo mostram os códigos de saída registrados nas duas tentativas:
 
 > ![Log do x64dbg mostrando o encerramento do processo com o código 0x80000003, STATUS_BREAKPOINT](/assets/images/enigma/eng8.png)
->
+
 > ![Log do x64dbg mostrando o encerramento do processo com o código 0x80000004, STATUS_SINGLE_STEP](/assets/images/enigma/eng9.png)
 
 Minha suspeita era que alguma proteção estivesse interferindo na depuração. O comportamento merecia investigação, mas eu ainda precisava descobrir onde a falha ocorria e por que não conseguia parar na API.
@@ -151,7 +151,7 @@ Por fim, continuei a execução e a janela do aplicativo abriu sob o debugger:
 
 > ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng20.png)
 
-Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. Mas agora sabemos como burlar.
+Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. Já sabemos onde intervir, mas alterar uma resposta não modifica as seguintes: é preciso tratar cada nova chamada.
 
 ## 4. Encontrando o OEP do programa
 
@@ -187,58 +187,96 @@ Ao executar o `jmp rax`, cheguei a `0x1000162B0`, o OEP identificado para o apli
 
 Nesta execução, a imagem estava carregada na base `0x100000000`. Assim, o RVA do salto é `0x2EAF80`, e o do OEP é `0x162B0`. Se essa mesma imagem for carregada em outra base, os endereços virtuais devem ser recalculados como `VA = base da imagem + RVA`.
 
-## 5.Achando IAT, dumpando e finalizando
+## 5. Encontrando a IAT, fazendo o dump e finalizando
 
-Pois bem, uma vez que cheguemos ao OEP, os próximos passos são:
+Pois bem, depois de localizar o OEP, faltam três etapas:
 
-1. Achar a IAT ou fazer uma nova.
-2. Desobrir o tamanho exato que ela poderia ter.
-3. Fazer o dump corrigindo quaisquer erros.
+1. Identificar a IAT em memória e delimitar seu tamanho.
+2. Fazer o dump e reconstruir as estruturas de importação.
+3. Testar o executável resultante e corrigir eventuais problemas no PE.
 
-Logo abaixo do OEP, podemos notar uma chamada para GetModuleHandle e é nela que vamos entrar:
+### Seguindo os thunks até a IAT
 
-> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng23.png)
+Pouco depois do OEP, encontrei uma chamada que o x64dbg identifica como `GetModuleHandleA`. Entrei nela para acompanhar como o programa chegava à API:
 
-Uma vez dentro da call, é possível notar uma grande quantidade de jmps indiretos:
+> ![Chamada em 0x1000162F0 para o thunk de GetModuleHandleA](/assets/images/enigma/eng24.png)
 
-> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng24.png)
->
-> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng25.png)
+O destino imediato era um **thunk de importação**: um pequeno trecho de código que salta para a API por meio de um ponteiro armazenado na IAT. Ao redor dele, apareciam outros thunks para funções como `WriteFile`, `ReadFile` e `CloseHandle`:
 
-Seguindo o valor no dump, é possível ver centenas de entradas indiretas:
+> ![Thunks com saltos indiretos para GetModuleHandleA, WriteFile, ReadFile e CloseHandle](/assets/images/enigma/eng25.png)
 
-> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng26.png)
+Aqui é importante distinguir o código do ponteiro. A instrução `jmp qword ptr [...]` está no thunk; o endereço de memória referenciado por ela contém uma entrada da IAT. Segui esse endereço na janela de dump e encontrei a sequência de ponteiros para as APIs:
 
-Logo, se fizermos a conta aonde termina essas entradas menos o endereço da onde começa a IAT, vamos ter o size que precisamos.
+> ![Entradas da IAT em memória, com endereços de APIs e um terminador nulo entre grupos de imports](/assets/images/enigma/eng26.png)
 
-Então já temos algumas informações:
+Como o executável é x64, cada entrada ocupa oito bytes, um `QWORD`. Um terminador nulo encerra o grupo de imports de uma DLL; ele não marca necessariamente o fim de toda a IAT. Nesta amostra, os grupos estavam contíguos, e o intervalo usado para a reconstrução tinha `0xD88` bytes.
 
-1. OEP = 00000001000162b0
-2. Endereço do começo da IAT = 0000000100290e3c
-3. Size da IAT = 0xD88
+Para calcular o tamanho, considerei o endereço inicial e o primeiro endereço após a tabela, incluindo o último terminador:
 
-A imagem abaixo eu faço o dump do executável com os valores corretos:
+```text
+Início da IAT:          0x100290E3C
+Fim exclusivo:         0x100291BC4
+Tamanho:               0x100291BC4 - 0x100290E3C = 0xD88
+```
 
-> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng27.png)
->
+Os valores usados no Scylla foram:
 
-Uma vez com o DUMP feito, o executável não abria e logo em seguida fechava, eu passei muito tempo tentando descobrir o que era isso. Pensei em todo tipo maluquice, mas no fim era apenas uma seção errada.
+| Informação | Valor |
+| --- | --- |
+| OEP — endereço virtual | `0x1000162B0` |
+| Início da IAT — endereço virtual | `0x100290E3C` |
+| Tamanho da IAT, em bytes | `0xD88` |
 
-Por que o dump abria e fechava: a seção .bss
-Depois de reconstruir a IAT, o executável abria, mas fechava cerca de dois segundos depois. Isso nos levou a conferir as seções do PE. A diferença decisiva estava na .bss.
-A .bss guarda dados não inicializados do programa, como variáveis globais que devem começar em zero. No arquivo original, ela ocupava espaço na memória, mas não tinha dados gravados no disco. O carregador do Windows reserva esse espaço e o preenche com zeros. É exatamente o comportamento descrito na especificação do formato PE da Microsoft.
-Campo	test64.exe original	Dump corrigido pelo Scylla
-RVA da seção	0x288000	0x288000
-VirtualSize	0x6614	0x7000
-SizeOfRawData	0	0x4A00
-PointerToRawData	0	0x268A00
+Na base `0x100000000`, os RVAs correspondentes são `0x162B0` para o OEP e `0x290E3C` para a IAT. Os campos **OEP** e **VA** da interface mostrada abaixo recebem os endereços virtuais; o campo **Size** recebe o tamanho em hexadecimal.
 
+### Reconstruindo os imports com o Scylla
 
-O problema é que o dump foi feito depois que o programa já havia executado. Naquele momento, a .bss continha valores daquela execução: encontramos bytes não nulos e endereços como 0x100012AE0. Ao gravar SizeOfRawData = 0x4A00, o dump passou a apresentar esses valores como se fossem dados iniciais do executável. Na próxima abertura, a seção já não começava no estado zerado esperado pelo programa.
-No PE-bear, localizamos a seção pelo RVA 0x288000, pois seu nome estava vazio no dump. Restauramos o nome .bss e o VirtualSize do original e, principalmente, ajustamos:
-SizeOfRawData   = 0
+Com esses valores, usei o [Scylla](https://github.com/NtQuery/Scylla) para ler os imports e reconstruí-los no dump. Na interface, a sequência é:
+
+1. Selecionar o processo correto, preencher **OEP**, **VA** e **Size** e usar **Get Imports** para ler a IAT.
+2. Conferir os imports identificados e usar **Dump** para salvar a imagem do executável.
+3. Usar **Fix Dump** e selecionar o arquivo salvo para reconstruir suas estruturas de importação.
+
+> ![Scylla x64 com OEP 0x1000162B0, IAT em 0x100290E3C, tamanho 0xD88 e 425 imports válidos; o log informa Import Rebuild success](/assets/images/enigma/eng27.png)
+
+A captura mostra 425 imports distribuídos entre oito DLLs, sem entradas marcadas como inválidas. A contagem também é compatível com o intervalo informado: 425 ponteiros mais oito terminadores nulos correspondem a 433 entradas de oito bytes, ou `0xD88`.
+
+O log registrou **Import Rebuild success**, mas ainda faltava testar o arquivo fora do debugger. Foi aí que apareceu o próximo problema.
+
+### Por que o executável abria e fechava: a seção `.bss`
+
+Depois da reconstrução dos imports, o executável abria, mas fechava cerca de dois segundos depois. Passei bastante tempo tentando entender o motivo. Pensei em todo tipo de maluquice, mas a diferença que resolveu o problema estava na reconstrução de uma seção: a `.bss`.
+
+A `.bss` normalmente reúne dados sem inicialização explícita, como variáveis globais que devem começar em zero. No original, ela ocupava espaço na imagem em memória, mas não tinha conteúdo armazenado no arquivo. A [especificação PE da Microsoft](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers) descreve esse caso: uma seção contendo apenas dados não inicializados tem `SizeOfRawData` e `PointerToRawData` iguais a zero; o espaço virtual é preenchido com zeros no carregamento.
+
+Ao comparar o original com o dump após a reconstrução dos imports, encontrei estes valores:
+
+| Campo | `test64.exe` original | Dump após o Scylla, antes do ajuste da `.bss` |
+| --- | --- | --- |
+| RVA da seção | `0x288000` | `0x288000` |
+| `VirtualSize` | `0x6614` | `0x7000` |
+| `SizeOfRawData` | `0` | `0x4A00` |
+| `PointerToRawData` | `0` | `0x268A00` |
+
+O dump analisado nessa etapa havia sido feito depois que o programa já executara. A `.bss` continha estado daquela execução: encontrei bytes não nulos e valores como `0x100012AE0`. Ao registrar `SizeOfRawData = 0x4A00`, o arquivo passou a fornecer esse conteúdo como dados iniciais da seção. Na próxima abertura, aquela região já não começava inteiramente zerada.
+
+No PE-bear, localizei a seção pelo RVA `0x288000`, pois seu nome estava vazio no dump. Restaurei o nome `.bss` e o `VirtualSize` do original e ajustei os campos abaixo:
+
+```text
+VirtualSize      = 0x6614
+SizeOfRawData    = 0
 PointerToRawData = 0
-Assim, os bytes capturados deixam de ser carregados como conteúdo inicial da seção, e o Windows volta a preenchê-la com zeros. Com a IAT e os demais metadados já reparados, o executável permaneceu aberto após essa correção.
-Isso não demonstra uma técnica antidump intencional do Enigma. O que observamos foi um erro de reconstrução: uma fotografia da memória de um processo em andamento foi tratada como se fosse o estado inicial de um arquivo PE. Também não rastreamos a instrução exata que provocava o fechamento; o teste mostrou que restaurar a .bss resolveu o comportamento observado.
+```
 
+Restaurar o nome facilita a identificação da seção; são os campos de tamanho e de conteúdo em disco que determinam o tratamento descrito aqui. Com os dois campos de dados brutos zerados, os bytes capturados deixam de ser carregados como conteúdo inicial dessa seção.
+
+Com a reconstrução dos imports já aplicada, testei novamente o executável, que permaneceu aberto após esse ajuste. Não rastreei a instrução exata que provocava o fechamento; o resultado observado foi que restaurar esses campos da `.bss` resolveu o comportamento nesse teste.
+
+O problema encontrado não demonstra uma técnica antidump intencional do Enigma. Foi um erro de reconstrução: o estado de uma execução anterior acabou incorporado ao arquivo como se fosse seu estado inicial. A comparação com o `test64.exe` sem proteção foi importante para identificar a diferença.
+
+### Fechando o teste
+
+Com isso, consegui atravessar as checagens descritas, chegar ao OEP, reconstruir os imports e manter o executável recuperado aberto fora do debugger. Esse foi o critério de sucesso do teste; a abertura da janela não valida, por si só, todas as funções do aplicativo.
+
+A parte que mais me tomou tempo veio depois do dump. Encontrar o OEP e recuperar a IAT foram etapas importantes, mas conferir o estado inicial das seções do PE foi o que permitiu concluir esse caso.
 
