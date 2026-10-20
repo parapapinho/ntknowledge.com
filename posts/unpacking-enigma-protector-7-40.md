@@ -95,7 +95,7 @@ O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim,
 
 ## 3. Primeiro obstáculo: **ThreadHideFromDebugger**
 
-Os breakpoints em **CheckRemoteDebuggerPresent** provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
+Os breakpoints em **CheckRemoteDebuggerPresent** provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia ter ocultado essa thread do debugger, impedindo a entrega dos seus eventos?
 
 Para averiguar isso, criei um script em Python que recebe o ID de uma thread e consulta se ela está oculta do debugger. O script abre um handle com **OpenThread** e chama **NtQueryInformationThread**, passando a classe **ThreadHideFromDebugger** (**0x11**). Nessa consulta, o buffer de saída recebe um **BOOLEAN** de um byte: **1** indica que a thread está oculta; **0**, que não está. Esse resultado deve ser interpretado depois de conferir o **NTSTATUS** retornado pela chamada. A definição dessa classe pode ser consultada nos headers do projeto phnt. [[10]](https://github.com/winsiderss/phnt/blob/master/ntpsapi.h)
 
