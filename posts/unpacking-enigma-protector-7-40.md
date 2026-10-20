@@ -267,6 +267,7 @@ VirtualSize      = 0x6614
 SizeOfRawData    = 0
 PointerToRawData = 0
 ```
+> ![Scylla x64 com OEP 0x1000162B0, IAT em 0x100290E3C, tamanho 0xD88 e 425 imports válidos; o log informa Import Rebuild success](/assets/images/enigma/eng28.png)
 
 Restaurar o nome facilita a identificação da seção; são os campos de tamanho e de conteúdo em disco que determinam o tratamento descrito aqui. Com os dois campos de dados brutos zerados, os bytes capturados deixam de ser carregados como conteúdo inicial dessa seção.
 
