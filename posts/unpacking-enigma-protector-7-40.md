@@ -1,12 +1,8 @@
 ## Introdução
 
-Para quem acompanhava os tutoriais de unpacking no CrackLatinos ou no Tuts4You, o nome Enigma Protector traz boas lembranças — ou péssimas, dependendo da sua skill, rsrs. Eram horas no debugger, fazendo tracing e tentando entender o que ainda faltava para aquele dump funcionar com a IAT corrigida. Revisitar esse tipo de proteção me traz muita nostalgia. Contudo, o que me chamou a atenção recentemente foi encontrar o Enigma novamente em pesquisas sobre operações de malware.
-
 Em junho de 2026, a ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen. Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. [[1]](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/) Em 2025, a Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky, no mapeamento de técnicas apresentado ao final do relatório. [[2]](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
-
-A ideia é fazer isso como nos velhos tempos: debugger aberto, acompanhando a execução e explicando o raciocínio (ou não ;) ) por trás de cada etapa. Ao longo do texto, vamos observar as checagens anti-debugging, chegar ao Original Entry Point (OEP), fazer o dump e reconstruir a Import Address Table (IAT).
 
 ## 1. Preparando o executável
 
