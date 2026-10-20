@@ -187,52 +187,32 @@ Ao executar o `jmp rax`, cheguei a `0x1000162B0`, o OEP identificado para o apli
 
 Nesta execução, a imagem estava carregada na base `0x100000000`. Assim, o RVA do salto é `0x2EAF80`, e o do OEP é `0x162B0`. Se essa mesma imagem for carregada em outra base, os endereços virtuais devem ser recalculados como `VA = base da imagem + RVA`.
 
-## 8. Dump no OEP: ainda falta reconstruir o PE
+## 5.Achando IAT, dumpando e finalizando
 
-Com a primeira amostra parada em `0x1000162B0`, fiz o dump com OllyDumpEx. O arquivo local `analysis/dumps/teste_protectd_olly_oep.exe` teve SHA-256 `8fe8d05e760d29a24f0be57e835deb39a03f6ec11b4ab3792a9ba1fcd8440b2c`; seu OEP no cabeçalho é RVA `0x162B0`. O rótulo exato do comando de dump usado na interface não foi registrado; ao reproduzir, confira que o OEP do arquivo salvo seja mesmo esse RVA.
+Pois bem, uma vez que cheguemos ao OEP, os próximos passos são:
 
-**Nota sobre “Restore packed base”:** antes, o IDA havia encerrado inesperadamente. Ao reabrir o banco de dados, escolhi essa opção no **diálogo de recuperação do IDA**. Ela restaura a base de análise e não substitui o dump do processo nem repara a IAT. Não é um botão do OllyDumpEx. Consulte a [ajuda do IDA sobre banco não fechado](https://docs.hex-rays.com/ida-9.2/user-guide/general-concepts/various-dialog-help-messages#database-is-not-closed).
+1. Achar a IAT ou fazer uma nova.
+2. Desobrir o tamanho exato que ela poderia ter.
+3. Fazer o dump corrigindo quaisquer erros.
 
-O dump capturou a imagem em memória, mas não constituiu por si só um EXE autônomo. A comparação com o original mostrou `.text`, `.rdata` e `.CRT` inteiras; `.data` diferia em 17 bytes de estado; `.pdata` estava zerada no RVA original; `.idata` perdera descritores e strings; e parte de `.rsrc` também estava zerada. Os ponteiros resolvidos da IAT continuavam na memória. O cabeçalho ainda conservava diretórios e seções do packer. É por isso que “achei o OEP” e “fiz o dump” não encerraram o unpacking.
+Logo abaixo do OEP, podemos notar uma chamada para GetModuleHandle e é nela que vamos entrar:
 
-## 9. Como identifiquei a IAT verdadeira
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng23.png)
 
-No arquivo protegido, o diretório `Import` apontava para RVA `0xF7FF3C` (tamanho `0x2A4`), uma tabela pequena do packer. O diretório IAT estava zerado. A aplicação original, porém, usava `Import` em RVA `0x290000` (tamanho `0xB4`) e IAT em RVA `0x290E3C` (tamanho `0xD88`). No dump do OEP, essa área continha **433 QWORDs**: 425 endereços de funções e oito zeros, um terminador para cada grupo de DLL.
+Uma vez dentro da call, é possível notar uma grande quantidade de jmps indiretos:
 
-Percorri esses ponteiros e as exportações dos módulos carregados, registradas no mapa local `analysis/iat_export_map.json`. Houve 407 nomes de API únicos, 18 endereços com nomes alias/forwarded ambíguos e nenhum slot sem candidato. Nos 18 casos ambíguos, o ponteiro sozinho não dizia qual nome tinha sido importado originalmente; usei `test64.exe` para selecionar o nome correto. Os oito grupos recuperados foram:
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng24.png)
+>
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng25.png)
 
-| DLL | Quantidade |
-| --- | ---: |
-| `kernel32.dll` | 101 |
-| `oleaut32.dll` | 16 |
-| `user32.dll` | 172 |
-| `ole32.dll` | 2 |
-| `gdi32.dll` | 108 |
-| `version.dll` | 3 |
-| `shell32.dll` | 4 |
-| `comctl32.dll` | 19 |
+Seguindo o valor no dump, é possível ver centenas de entradas indiretas:
 
-**E o “API redirect”?** Nesta configuração, no instante do OEP, nenhum dos 425 slots da IAT apontava para a imagem do Enigma: todos levavam diretamente a exportações de DLLs carregadas. Os 425 thunks `FF 25` do aplicativo também eram byte a byte iguais aos do original. Portanto, não havia aqui um trampoline global do Enigma na IAT que precisasse seguir para achar nomes. O `jmp rax` da seção anterior era a **transferência ao OEP**, não o redirecionamento de uma API. O [manual do Enigma](https://www.enigmaprotector.com/en/help/manual/programoverview-protectionfeatures-importprotection) trata **Emulate WinAPI functions** e **Redirect WinAPI functions** como opções diferentes. Minha observação no OEP não exclui emulação interna em outros momentos, nem descreve builds com Redirect ativado.
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng26.png)
 
-## 10. Reparando os imports e produzindo o EXE de teste
+Logo, se fizermos a conta aonde termina essas entradas menos o endereço da onde começa a IAT, vamos ter o size que precisamos.
 
-O script local `analysis/rebuild_iat.py` usa o dump do OEP e o mapa das exportações para refazer as estruturas PE. Ele é específico desta amostra; seus caminhos e RVAs estão fixados no arquivo. Na pasta do laboratório, a execução foi:
+Então já temos algumas informações:
 
-```powershell
-python analysis\rebuild_iat.py
-```
-
-Em termos de PE, o procedimento foi:
-
-1. Validar hash do dump, base, OEP, RVAs, tamanho da IAT, número de seções e contagem de slots.
-2. Para cada um dos oito grupos, escrever `IMAGE_IMPORT_DESCRIPTOR`, uma **Import Lookup Table**, uma **Import Address Table**, estruturas `IMAGE_IMPORT_BY_NAME` e nomes de DLL. Cada grupo termina com um QWORD zero.
-3. Atualizar os diretórios `Import` (`RVA 0x290000`, tamanho `0xB4`) e `IAT` (`RVA 0x290E3C`, tamanho `0xD88`).
-4. Gerar um primeiro arquivo com os imports reparados: `analysis/dumps/teste_protectd_iat_restored.exe`. Ele ainda contém onze seções e metadados do packer; é **intermediário**.
-5. Para o ensaio de execução autônoma, repor do original `.data` e `.rsrc`, completar `.pdata`, zerar `.bss`, corrigir os diretórios PE e deixar somente as oito seções do aplicativo na tabela. O resultado local foi `analysis/dumps/teste_protectd_recovered.exe`. O relatório local `analysis/dumps/iat_rebuild_result.json` guarda os hashes e contagens.
-
-O parser PE encontrou oito descritores e 425 imports, com nomes, ordem e posições ILT/IAT iguais aos do original, sem avisos. As demais seções do aplicativo coincidiram com o original nas áreas virtuais; `.idata` tem outro arranjo de bytes porque as strings foram reconstruídas, mas a interpretação dos imports é a mesma. O arquivo recuperado tem 2.768.896 bytes e SHA-256 `2d6c90b631af0c335e359c6c2b09c34cc69e1432016aa53071eb01aed8f88392`. Fora do debugger, ele iniciou e abriu a janela **Notepad** com controle `Edit`.
-
-
----
-
-**Notas adicionais:** os relatórios locais `analysis/antidebugger-740.md`, `analysis/iat-recovery-740.md` e `analysis/test64-primeiro-build.md` guardam rastreios e detalhes desta sessão; os binários, projetos de proteção, dumps e scripts específicos do ambiente não fazem parte da versão publicada deste tutorial. **Referências externas:** [manual Anti Debugger do Enigma](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger), [manual Import Protection do Enigma](https://www.enigmaprotector.com/en/help/manual/programoverview-protectionfeatures-importprotection), [comandos de breakpoint do x64dbg](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetHardwareBreakpoint.html).
+1. OEP = 00000001000162b0
+2. Endereço do começo da IAT = 0000000100290e3c
+3. Size da IAT = 0xD88
