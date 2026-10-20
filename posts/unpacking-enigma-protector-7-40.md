@@ -73,7 +73,7 @@ Porém, ao continuar a execução com o breakpoint na API, a aplicação encerra
 
 > ![Breakpoints habilitados no x64dbg: CheckRemoteDebuggerPresent em 0x7FFAD8B15180 e as exceções 0x80000003 e 0x80000004](/assets/images/enigma/eng10.png)
 
-Se o x64dbg parar em uma exceção, o comando **exinfo** permite consultar os dados da última exceção recebida pelo debugger, incluindo **ExceptionCode** e **ExceptionAddress**. [[9]](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Vale registrar essa saída antes de continuar a execução. O comando depende das informações recebidas pelo debugger; ele não reconstrói uma exceção que não foi entregue a ele.
+Se o x64dbg parar em uma exceção, o comando **exinfo** permite consultar os dados da última exceção recebida pelo debugger, incluindo **ExceptionCode** e **ExceptionAddress**. [[9]](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Vale registrar essa saída antes de continuar a execução. O comando depende das informações recebidas pelo debugger; no fim nada foi registrado e o debugger simplesmente fechou.
 
 E agora? Apelei para o log de eventos do Windows. Repeti o teste e abri o **Visualizador de Eventos**, em **Logs do Windows > Aplicativo**, para procurar o registro da falha:
 
