@@ -2,7 +2,7 @@
 
 Para quem acompanhava os tutoriais de unpacking no CrackLatinos ou no Tuts4You, o nome Enigma Protector traz boas lembranças — ou péssimas, dependendo da sua skill, rsrs. Eram horas no debugger, fazendo tracing e tentando entender o que ainda faltava para aquele dump funcionar com a IAT corrigida. Revisitar esse tipo de proteção me traz muita nostalgia. Contudo, o que me chamou a atenção recentemente foi encontrar o Enigma novamente em pesquisas sobre operações de malware.
 
-Em junho de 2026, a [ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/). Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. Em 2025, a [Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf), no mapeamento de técnicas apresentado ao final do relatório. Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
+Em junho de 2026, a ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen. Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. [[1]](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/) Em 2025, a Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky, no mapeamento de técnicas apresentado ao final do relatório. [[2]](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
 
@@ -18,7 +18,7 @@ Para começar, utilizei a versão x64 7.40 do Enigma.
 
 > ![Tela Input do Enigma Protector com os arquivos de entrada e saída e as categorias de configuração](/assets/images/enigma/eng2.png)
 
-Para este estudo, foquei nas opções de anti-debugging e de emulação de APIs. As imagens abaixo mostram as configurações utilizadas:
+Para este estudo, foquei nas opções de anti-debugging e de emulação de APIs, descritas no manual do Enigma. [[3]](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger) [[4]](https://www.enigmaprotector.com/en/help/manual/programoverview-protectionfeatures-importprotection) As imagens abaixo mostram as configurações utilizadas:
 
 > ![Opções de anti-debugging ativadas, incluindo checagem em runtime e mensagem antes do encerramento](/assets/images/enigma/eng3.png)
 
@@ -38,13 +38,13 @@ Primeiro, executei o programa no x64dbg. Logo surgiu a janela **Debugger warning
 
 > ![Lista de imports no x64dbg com user32.MessageBoxA em destaque](/assets/images/enigma/eng6.png)
 
-Bem, tentei retornar ao código do programa pelo debugger, mas não consegui. Então pausei a execução e encontrei, na visualização da pilha, um ponteiro para a string **CheckRemoteDebuggerPresent**. Segundo a [documentação da Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent), essa API verifica se o processo especificado está sendo depurado. Era uma boa pista de uma possível checagem anti-debugging, embora a string, sozinha, ainda não comprovasse uma chamada. Pelo menos eu já tinha por onde começar.
+Bem, tentei retornar ao código do programa pelo debugger, mas não consegui. Então pausei a execução e encontrei, na visualização da pilha, um ponteiro para a string **CheckRemoteDebuggerPresent**. Segundo a documentação da Microsoft, essa API verifica se o processo especificado está sendo depurado. [[5]](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent) Era uma boa pista de uma possível checagem anti-debugging, embora a string, sozinha, ainda não comprovasse uma chamada. Pelo menos eu já tinha por onde começar.
 
 > ![Visualização da pilha com ponteiros para as strings kernel32.dll e CheckRemoteDebuggerPresent](/assets/images/enigma/eng7.png)
 
 Para confirmar o uso de **CheckRemoteDebuggerPresent**, coloquei um breakpoint de software na API e, em outra execução, testei um breakpoint de hardware (HBP). O resultado chamou minha atenção: com o breakpoint de software, o x64dbg registrou o encerramento do processo com o código **0x80000003** (**STATUS_BREAKPOINT**); com o HBP, o código foi **0x80000004** (**STATUS_SINGLE_STEP**).
 
-Esses códigos correspondem a exceções de breakpoint e de single-step, respectivamente. Em x86/x64, um breakpoint de software normalmente usa a instrução **INT3**; um breakpoint de hardware pode gerar uma exceção de single-step, assim como a execução passo a passo. Portanto, esses códigos não significam, por si só, que o programa detectou o debugger ou inspecionou os breakpoints.
+Esses códigos correspondem a exceções de breakpoint e de single-step, respectivamente. [[6]](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-exception_record) Em x86/x64, um breakpoint de software normalmente usa a instrução **INT3**; um breakpoint de hardware pode gerar uma exceção de single-step, assim como a execução passo a passo. Portanto, esses códigos não significam, por si só, que o programa detectou o debugger ou inspecionou os breakpoints.
 
 As imagens abaixo mostram os códigos de saída registrados nas duas tentativas:
 
@@ -54,7 +54,7 @@ As imagens abaixo mostram os códigos de saída registrados nas duas tentativas:
 
 Minha suspeita era que alguma proteção estivesse interferindo na depuração. O comportamento merecia investigação, mas eu ainda precisava descobrir onde a falha ocorria e por que não conseguia parar na API.
 
-Eu queria confirmar se a exceção ocorria exatamente no endereço em que havia colocado o breakpoint em **kernel32!CheckRemoteDebuggerPresent**. Para isso, precisava distinguir duas informações: o **código da exceção**, que identifica seu tipo, e o **endereço da exceção**, que indica onde ela ocorreu.
+Eu queria confirmar se a exceção ocorria exatamente no endereço em que havia colocado o breakpoint em **kernel32!CheckRemoteDebuggerPresent**. Para isso, precisava distinguir duas informações: o **código da exceção**, que identifica seu tipo, e o **endereço da exceção**, que indica onde ela ocorreu. [[6]](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-exception_record)
 
 Antes de continuar a execução, abri a aba **Log** do x64dbg, cliquei com o botão direito e escolhi **Redirect Log**. Selecionei um arquivo **.txt** para gravar as novas mensagens.
 
@@ -67,13 +67,13 @@ SetExceptionBPX 80000004, all
 SetExceptionBreakpointLog 80000004, "CODIGO={x:ex.code()} ENDERECO={a:ex.addr()}"
 ```
 
-O argumento **all** configura a captura de exceções de primeira e segunda chance. As mensagens registram o código e o endereço quando o breakpoint de exceção é atingido. As referências dos comandos estão na documentação do x64dbg: [SetExceptionBPX](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetExceptionBPX.html) e [SetExceptionBreakpointLog](https://help.x64dbg.com/en/latest/commands/conditional-breakpoint-control/SetExceptionBreakpointLog.html).
+O argumento **all** configura a captura de exceções de primeira e segunda chance. [[7]](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetExceptionBPX.html) As mensagens registram o código e o endereço quando o breakpoint de exceção é atingido. [[8]](https://help.x64dbg.com/en/latest/commands/conditional-breakpoint-control/SetExceptionBreakpointLog.html)
 
 Porém, ao continuar a execução com o breakpoint na API, a aplicação encerrava sem que eu obtivesse o registro esperado do endereço da exceção. Os breakpoints estavam configurados como mostra a imagem:
 
 > ![Breakpoints habilitados no x64dbg: CheckRemoteDebuggerPresent em 0x7FFAD8B15180 e as exceções 0x80000003 e 0x80000004](/assets/images/enigma/eng10.png)
 
-Se o x64dbg parar em uma exceção, o comando [**exinfo**](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) permite consultar os dados da última exceção recebida pelo debugger, incluindo **ExceptionCode** e **ExceptionAddress**. Vale registrar essa saída antes de continuar a execução. O comando depende das informações recebidas pelo debugger; ele não reconstrói uma exceção que não foi entregue a ele.
+Se o x64dbg parar em uma exceção, o comando **exinfo** permite consultar os dados da última exceção recebida pelo debugger, incluindo **ExceptionCode** e **ExceptionAddress**. [[9]](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Vale registrar essa saída antes de continuar a execução. O comando depende das informações recebidas pelo debugger; ele não reconstrói uma exceção que não foi entregue a ele.
 
 E agora? Apelei para o log de eventos do Windows. Repeti o teste e abri o **Visualizador de Eventos**, em **Logs do Windows > Aplicativo**, para procurar o registro da falha:
 
@@ -97,7 +97,7 @@ O resultado coincide com o endereço em que coloquei o breakpoint na API. Assim,
 
 Os breakpoints em **CheckRemoteDebuggerPresent** provocavam uma exceção, mas o debugger não conseguia parar normalmente naquela thread. Isso levantou uma hipótese: o loader poderia tê-la ocultado dos eventos de debugging?
 
-Para averiguar isso, criei um script em Python que recebe o ID de uma thread e consulta se ela está oculta do debugger. O script abre um handle com **OpenThread** e chama **NtQueryInformationThread**, passando a classe **ThreadHideFromDebugger** (**0x11**). Nessa consulta, o buffer de saída recebe um **BOOLEAN** de um byte: **1** indica que a thread está oculta; **0**, que não está. Esse resultado deve ser interpretado depois de conferir o **NTSTATUS** retornado pela chamada. A definição dessa classe pode ser consultada nos [headers do projeto phnt](https://github.com/winsiderss/phnt/blob/master/ntpsapi.h).
+Para averiguar isso, criei um script em Python que recebe o ID de uma thread e consulta se ela está oculta do debugger. O script abre um handle com **OpenThread** e chama **NtQueryInformationThread**, passando a classe **ThreadHideFromDebugger** (**0x11**). Nessa consulta, o buffer de saída recebe um **BOOLEAN** de um byte: **1** indica que a thread está oculta; **0**, que não está. Esse resultado deve ser interpretado depois de conferir o **NTSTATUS** retornado pela chamada. A definição dessa classe pode ser consultada nos headers do projeto phnt. [[10]](https://github.com/winsiderss/phnt/blob/master/ntpsapi.h)
 
 Primeiro, identifiquei a thread principal no x64dbg. Naquela execução, seu ID era **8196**:
 
@@ -139,19 +139,19 @@ Em seguida, continuei a execução. Dessa vez, consegui parar em **CheckRemoteDe
 
 > ![Parada em kernel32.CheckRemoteDebuggerPresent com RCX=-1 e RDX=0x23FFD08](/assets/images/enigma/eng18.png)
 
-Nesse ponto, anotei o **valor de RDX**, que era **0x23FFD08**. Ele apontava para o **BOOL** de saída em que a API escreveria a resposta sobre a presença do debugger. Esse **BOOL** ocupa quatro bytes, diferentemente do **BOOLEAN** de um byte usado na consulta anterior.
+Nesse ponto, anotei o **valor de RDX**, que era **0x23FFD08**. Ele apontava para o **BOOL** de saída em que a API escreveria a resposta sobre a presença do debugger. Esse **BOOL** ocupa quatro bytes, diferentemente do **BOOLEAN** de um byte usado na consulta anterior. [[11]](https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types)
 
 Continuei até o **ret** mostrado na imagem abaixo. Nesse ponto, a API já havia escrito **01 00 00 00** no endereço salvo, indicando a presença do debugger. Antes de retornar ao chamador, alterei esses quatro bytes para **00 00 00 00**:
 
 > ![Parada no ret de CheckRemoteDebuggerPresent em KERNELBASE, com o BOOL em 0x23FFD08 contendo 01 00 00 00 antes da alteração](/assets/images/enigma/eng19.png)
 
-É importante guardar o ponteiro na entrada da API: **RDX** é volátil e pode ter outro valor ao final da chamada. A alteração é feita no conteúdo do endereço salvo, não no registrador. O retorno de sucesso da API deve ser preservado: conforme a [documentação de CheckRemoteDebuggerPresent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent), o valor retornado indica se a consulta teve sucesso; a resposta sobre o debugger fica no **BOOL** de saída.
+É importante guardar o ponteiro na entrada da API: **RDX** é volátil e pode ter outro valor ao final da chamada. [[12]](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170) A alteração é feita no conteúdo do endereço salvo, não no registrador. O retorno de sucesso da API deve ser preservado: conforme a documentação de CheckRemoteDebuggerPresent, o valor retornado indica se a consulta teve sucesso; a resposta sobre o debugger fica no **BOOL** de saída. [[5]](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent)
 
 Por fim, continuei a execução e a janela do aplicativo abriu sob o debugger:
 
 > ![Janela Notepad do aplicativo de teste aberta sob o debugger após o patch e a alteração do BOOL de saída](/assets/images/enigma/eng20.png)
 
-Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. Já sabemos onde intervir, mas alterar uma resposta não modifica as seguintes: é preciso tratar cada nova chamada.
+Com isso, consegui atravessar a checagem inicial e abrir o programa nesse teste. A checagem em runtime, quando ativada, ainda pode repetir a consulta. [[3]](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger) Já sabemos onde intervir, mas alterar uma resposta não modifica as seguintes: é preciso tratar cada nova chamada.
 
 ## 4. Encontrando o OEP do programa
 
@@ -185,7 +185,7 @@ Ao executar o **jmp rax**, cheguei a **0x1000162B0**, o OEP identificado para o 
 
 > ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng23.png)
 
-Nesta execução, a imagem estava carregada na base **0x100000000**. Assim, o RVA do salto é **0x2EAF80**, e o do OEP é **0x162B0**. Se essa mesma imagem for carregada em outra base, os endereços virtuais devem ser recalculados como **VA = base da imagem + RVA**.
+Nesta execução, a imagem estava carregada na base **0x100000000**. Assim, o RVA do salto é **0x2EAF80**, e o do OEP é **0x162B0**. Se essa mesma imagem for carregada em outra base, os endereços virtuais devem ser recalculados como **VA = base da imagem + RVA**. [[13]](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
 
 ## 5. Encontrando a IAT, fazendo o dump e finalizando
 
@@ -209,7 +209,7 @@ Aqui é importante distinguir o código do ponteiro. A instrução **jmp qword p
 
 > ![Entradas da IAT em memória, com endereços de APIs e um terminador nulo entre grupos de imports](/assets/images/enigma/eng26.png)
 
-Como o executável é x64, cada entrada ocupa oito bytes, um **QWORD**. Um terminador nulo encerra o grupo de imports de uma DLL; ele não marca necessariamente o fim de toda a IAT. Nesta amostra, os grupos estavam contíguos, e o intervalo usado para a reconstrução tinha **0xD88** bytes.
+Como o executável é x64, cada entrada ocupa oito bytes, um **QWORD**. Um terminador nulo encerra o grupo de imports de uma DLL; ele não marca necessariamente o fim de toda a IAT. [[13]](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format) Nesta amostra, os grupos estavam contíguos, e o intervalo usado para a reconstrução tinha **0xD88** bytes.
 
 Para calcular o tamanho, considerei o endereço inicial e o primeiro endereço após a tabela, incluindo o último terminador:
 
@@ -231,7 +231,7 @@ Na base **0x100000000**, os RVAs correspondentes são **0x162B0** para o OEP e *
 
 ### Reconstruindo os imports com o Scylla
 
-Com esses valores, usei o [Scylla](https://github.com/NtQuery/Scylla) para ler os imports e reconstruí-los no dump. Na interface, a sequência é:
+Com esses valores, usei o Scylla para ler os imports e reconstruí-los no dump. [[14]](https://github.com/NtQuery/Scylla) Na interface, a sequência é:
 
 1. Selecionar o processo correto, preencher **OEP**, **VA** e **Size** e usar **Get Imports** para ler a IAT.
 2. Conferir os imports identificados e usar **Dump** para salvar a imagem do executável.
@@ -247,7 +247,7 @@ O log registrou **Import Rebuild success**, mas ainda faltava testar o arquivo f
 
 Depois da reconstrução dos imports, o executável abria, mas fechava cerca de dois segundos depois. Passei bastante tempo tentando entender o motivo. Pensei em todo tipo de maluquice, mas a diferença que resolveu o problema estava na reconstrução de uma seção: a **.bss**.
 
-A **.bss** normalmente reúne dados sem inicialização explícita, como variáveis globais que devem começar em zero. No original, ela ocupava espaço na imagem em memória, mas não tinha conteúdo armazenado no arquivo. A [especificação PE da Microsoft](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers) descreve esse caso: uma seção contendo apenas dados não inicializados tem **SizeOfRawData** e **PointerToRawData** iguais a zero; o espaço virtual é preenchido com zeros no carregamento.
+A **.bss** normalmente reúne dados sem inicialização explícita, como variáveis globais que devem começar em zero. No original, ela ocupava espaço na imagem em memória, mas não tinha conteúdo armazenado no arquivo. A especificação PE da Microsoft descreve esse caso: uma seção contendo apenas dados não inicializados tem **SizeOfRawData** e **PointerToRawData** iguais a zero; o espaço virtual é preenchido com zeros no carregamento. [[13]](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
 
 Ao comparar o original com o dump após a reconstrução dos imports, encontrei estes valores:
 
@@ -260,7 +260,7 @@ Ao comparar o original com o dump após a reconstrução dos imports, encontrei 
 
 O dump analisado nessa etapa havia sido feito depois que o programa já executara. A **.bss** continha estado daquela execução: encontrei bytes não nulos e valores como **0x100012AE0**. Ao registrar **SizeOfRawData = 0x4A00**, o arquivo passou a fornecer esse conteúdo como dados iniciais da seção. Na próxima abertura, aquela região já não começava inteiramente zerada.
 
-No PE-bear, localizei a seção pelo RVA **0x288000**, pois seu nome estava vazio no dump. Restaurei o nome **.bss** e o **VirtualSize** do original e ajustei os campos abaixo:
+No PE-bear [[15]](https://github.com/hasherezade/pe-bear), localizei a seção pelo RVA **0x288000**, pois seu nome estava vazio no dump. Restaurei o nome **.bss** e o **VirtualSize** do original e ajustei os campos abaixo:
 
 ```text
 VirtualSize      = 0x6614
@@ -281,3 +281,34 @@ Com isso, consegui atravessar as checagens descritas, chegar ao OEP, reconstruir
 
 A parte que mais me tomou tempo veio depois do dump. Encontrar o OEP e recuperar a IAT foram etapas importantes, mas conferir o estado inicial das seções do PE foi o que permitiu concluir esse caso.
 
+## Referências
+
+**[1]** [ESET — Jakub Souček. Killing me gently: Inside Gentlemen’s EDR killer framework (18 jun. 2026).](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/) Uso de Enigma e Themida nas ferramentas do grupo Gentlemen.
+
+**[2]** [Aryaka Threat Research Lab. From Reconnaissance to Control: The Operational Blueprint of Kimsuky APT for Cyber Espionage — Report 2 (2025).](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) Apêndice B, página 30: Software Packing (Enigma Protector).
+
+**[3]** [The Enigma Protector. Manual — Anti Debugger.](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger) Opções de checagem inicial, checagem em runtime e mensagem de detecção.
+
+**[4]** [The Enigma Protector. Manual — Import Protection.](https://www.enigmaprotector.com/en/help/manual/programoverview-protectionfeatures-importprotection) Opções de proteção dos imports, redirecionamento e emulação de WinAPI.
+
+**[5]** [Microsoft Learn. CheckRemoteDebuggerPresent.](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent) Parâmetros, BOOL de saída e valor de retorno da API.
+
+**[6]** [Microsoft Learn. EXCEPTION_RECORD.](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-exception_record) Código, endereço e tipos de exceção.
+
+**[7]** [x64dbg. SetExceptionBPX.](https://help.x64dbg.com/en/latest/commands/breakpoint-control/SetExceptionBPX.html) Breakpoints de exceção de primeira e segunda chance.
+
+**[8]** [x64dbg. SetExceptionBreakpointLog.](https://help.x64dbg.com/en/latest/commands/conditional-breakpoint-control/SetExceptionBreakpointLog.html) Configuração das mensagens de log dos breakpoints de exceção.
+
+**[9]** [x64dbg. exinfo.](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Consulta dos dados da última exceção recebida pelo debugger.
+
+**[10]** [System Informer / phnt. ntpsapi.h.](https://github.com/winsiderss/phnt/blob/master/ntpsapi.h) Definições da Native API, incluindo THREADINFOCLASS e ThreadHideFromDebugger.
+
+**[11]** [Microsoft Learn. Windows Data Types.](https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types) Definições de BOOL, BOOLEAN e dos demais tipos usados pelas APIs.
+
+**[12]** [Microsoft Learn. x64 calling convention.](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170) Passagem de argumentos e registradores voláteis, incluindo RDX.
+
+**[13]** [Microsoft Learn. PE Format.](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format) VA e RVA, tabelas de importação e campos dos cabeçalhos de seção.
+
+**[14]** [NtQuery. Scylla — Imports Reconstructor.](https://github.com/NtQuery/Scylla) Repositório da ferramenta de reconstrução de imports.
+
+**[15]** [hasherezade. PE-bear.](https://github.com/hasherezade/pe-bear) Repositório da ferramenta usada para inspecionar e editar o PE.
