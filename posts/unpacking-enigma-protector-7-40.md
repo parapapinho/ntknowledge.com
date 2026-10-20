@@ -216,3 +216,29 @@ Então já temos algumas informações:
 1. OEP = 00000001000162b0
 2. Endereço do começo da IAT = 0000000100290e3c
 3. Size da IAT = 0xD88
+
+A imagem abaixo eu faço o dump do executável com os valores corretos:
+
+> ![Código no OEP 0x1000162B0, começando por uma instrução LEA que ajusta RSP](/assets/images/enigma/eng27.png)
+>
+
+Uma vez com o DUMP feito, o executável não abria e logo em seguida fechava, eu passei muito tempo tentando descobrir o que era isso. Pensei em todo tipo maluquice, mas no fim era apenas uma seção errada.
+
+Por que o dump abria e fechava: a seção .bss
+Depois de reconstruir a IAT, o executável abria, mas fechava cerca de dois segundos depois. Isso nos levou a conferir as seções do PE. A diferença decisiva estava na .bss.
+A .bss guarda dados não inicializados do programa, como variáveis globais que devem começar em zero. No arquivo original, ela ocupava espaço na memória, mas não tinha dados gravados no disco. O carregador do Windows reserva esse espaço e o preenche com zeros. É exatamente o comportamento descrito na especificação do formato PE da Microsoft.
+Campo	test64.exe original	Dump corrigido pelo Scylla
+RVA da seção	0x288000	0x288000
+VirtualSize	0x6614	0x7000
+SizeOfRawData	0	0x4A00
+PointerToRawData	0	0x268A00
+
+
+O problema é que o dump foi feito depois que o programa já havia executado. Naquele momento, a .bss continha valores daquela execução: encontramos bytes não nulos e endereços como 0x100012AE0. Ao gravar SizeOfRawData = 0x4A00, o dump passou a apresentar esses valores como se fossem dados iniciais do executável. Na próxima abertura, a seção já não começava no estado zerado esperado pelo programa.
+No PE-bear, localizamos a seção pelo RVA 0x288000, pois seu nome estava vazio no dump. Restauramos o nome .bss e o VirtualSize do original e, principalmente, ajustamos:
+SizeOfRawData   = 0
+PointerToRawData = 0
+Assim, os bytes capturados deixam de ser carregados como conteúdo inicial da seção, e o Windows volta a preenchê-la com zeros. Com a IAT e os demais metadados já reparados, o executável permaneceu aberto após essa correção.
+Isso não demonstra uma técnica antidump intencional do Enigma. O que observamos foi um erro de reconstrução: uma fotografia da memória de um processo em andamento foi tratada como se fosse o estado inicial de um arquivo PE. Também não rastreamos a instrução exata que provocava o fechamento; o teste mostrou que restaurar a .bss resolveu o comportamento observado.
+
+
