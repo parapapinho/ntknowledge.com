@@ -275,9 +275,7 @@ O problema encontrado não demonstra uma técnica antidump intencional do Enigma
 
 ### Fechando o teste
 
-Com isso, consegui atravessar as checagens descritas, chegar ao OEP, reconstruir os imports e manter o executável recuperado aberto fora do debugger. Esse foi o critério de sucesso do teste; a abertura da janela não valida, por si só, todas as funções do aplicativo.
-
-A parte que mais me tomou tempo veio depois do dump. Encontrar o OEP e recuperar a IAT foram etapas importantes, mas conferir o estado inicial das seções do PE foi o que permitiu concluir esse caso.
+Com isso, consegui atravessar as checagens descritas, chegar ao OEP, reconstruir os imports e manter o executável recuperado aberto fora do debugger. A parte que mais me tomou tempo veio depois do dump. Encontrar o OEP e recuperar a IAT foram etapas importantes, mas conferir o estado inicial das seções do PE foi o que permitiu concluir esse caso.
 
 ## Referências
 
