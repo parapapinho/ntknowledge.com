@@ -1,6 +1,8 @@
 ## Introdução
 
-Em junho de 2026, a ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen. Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. [[1]](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/) Em 2025, a Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky, no mapeamento de técnicas apresentado ao final do relatório. [[2]](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
+Em junho de 2026, a ESET documentou o uso de Enigma e Themida em ferramentas para desativar EDRs mantidas pelo grupo The Gentlemen. Entre as amostras identificadas está uma variante do GentleKiller protegida com Enigma. [[1]](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/)
+
+Em 2025, a Aryaka também registrou o uso de Enigma Protector em uma campanha atribuída ao Kimsuky, no mapeamento de técnicas apresentado ao final do relatório. [[2]](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) Essas referências mostram por que conhecer um protector comercial ainda faz diferença no trabalho de análise.
 
 Foi esse uso por atores maliciosos que me motivou a revisitar o Enigma e escrever este tutorial — sim, vou chamar de tutorial. Para quem analisa malware, a proteção pode ocupar boa parte do trabalho antes que seja possível examinar a lógica da amostra. Entender onde termina o loader e começa o código da aplicação ajuda a interpretar o que aparece no debugger e a reconhecer quais comportamentos pertencem a cada um.
 
