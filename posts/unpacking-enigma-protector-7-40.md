@@ -153,9 +153,9 @@ That got me past the initial check and let me open the program in this test. Whe
 
 ## 4. Finding the program's OEP
 
-After getting around the **CheckRemoteDebuggerPresent** check, the next step was to find the program's **Original Entry Point (OEP)**. That's where I want to stop to take the dump and then rebuild the IAT.
+After getting around the **CheckRemoteDebuggerPresent** check, the next step was to stop at the program's **Original Entry Point (OEP)** to take the dump and then rebuild the IAT.
 
-If you've analyzed packers before, you start recognizing patterns in how they hand control back to the original code. Still, there's no single technique that works in every case: finding that point takes tracing and investigation. To keep this tutorial from getting too long, I'll skip the full trace and show the final sequence I found in this sample.
+In this case, I had the unprotected executable, so I already knew where its OEP was. That gave me a reference for confirming which jump in the Enigma loader reached it. The useful part here is the sequence that prepares that jump: once identified, it gives us a place to stop without having to recognize the startup code of each compiler.
 
 I set a hardware execution breakpoint at **0x1002EAF78** and stopped at the sequence that prepares the jump:
 
@@ -177,7 +177,7 @@ If you're already thinking about automating the search, here are the bytes for t
 
 > ![Byte pattern for the sequence before the OEP: 48 8B 45 E0 48 8B 65 F8 FF E0](/assets/images/enigma/eng22.png)
 
-This pattern gives you a starting point for finding the sequence in this sample. Finding the same bytes in another executable doesn't guarantee you've found the jump to the OEP: you still need to follow execution and check the destination.
+I also tested this pattern on other executables protected with Enigma x64 7.40 using the same settings. In those tests, it consistently led to the same point where the loader transfers control to the OEP. That makes it useful even when the unprotected file is unavailable: the pattern identifies the loader sequence, while the destination address comes from **RAX**. When using it on another file, follow the jump and check its destination.
 
 After executing **jmp rax**, I landed at **0x1000162B0**, the OEP identified for the test application:
 
