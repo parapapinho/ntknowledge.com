@@ -4,7 +4,7 @@ In June 2026, ESET documented the use of Enigma and Themida in The Gentlemen's t
 
 In 2025, Aryaka also reported the use of Enigma Protector in a campaign attributed to Kimsuky, listing it in the mapping of techniques at the end of the report. [[2]](https://www.aryaka.com/docs/reports/aryaka-kimsuky-apt-operational-blueprint.pdf) These examples show why knowing your way around a commercial protector still matters when analyzing malware.
 
-Seeing malicious actors use it is what made me revisit Enigma and write this tutorial. Yes, I'm calling it a tutorial. When you're analyzing malware, getting past the protection can take up a good part of the work before you can even look at what the sample does. Understanding where the loader ends and the application's code begins helps you make sense of what you see in the debugger and tell which behavior belongs to which.
+Seeing malicious actors use it is what made me revisit Enigma and write this tutorial. Yes, I'm calling it a tutorial. When you're analyzing malware, getting past the protection can take up a good part of the work before you can even look at what the sample does. Understanding where the loader ends and the application's code begins helps you make sense of what you see in the debugger and distinguish the loader's behavior from the application's.
 
 ## 1. Preparing the executable
 
@@ -24,7 +24,7 @@ For this test, I focused on the anti-debugging and API emulation options describ
 
 The Enigma installer includes a test executable, **test64.exe**, so I used that as my example. I protected it with the settings shown above and started debugging. I kept the unprotected original to compare the code and PE structures as I went along.
 
-The first thing I like to do when debugging any program is run it and see whether anything goes wrong. For debugging, I used IDA Pro 9.4 and x64dbg, both without anti-anti-debugging plugins. For reconstruction, I used Scylla x64 and PE-bear.
+The first thing I like to do when debugging any program is run it and see whether anything goes wrong. I used IDA Pro 9.4 and x64dbg, both without anti-anti-debugging plugins. For reconstruction, I used Scylla x64 and PE-bear.
 
 The addresses in the screenshots belong to their respective sessions. If you're following along, resolve the APIs in your own process and check the module bases; absolute addresses can change.
 
@@ -71,13 +71,13 @@ But when I resumed execution with the breakpoint on the API, the application exi
 
 > ![Enabled breakpoints in x64dbg: CheckRemoteDebuggerPresent at 0x7FFAD8B15180 and exceptions 0x80000003 and 0x80000004](/assets/images/enigma/eng10.png)
 
-If x64dbg stops on an exception, the **exinfo** command lets you inspect the last exception received by the debugger, including **ExceptionCode** and **ExceptionAddress**. [[9]](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Save that output before continuing. The command relies on information received by the debugger; in the end, nothing was logged and the debugger simply closed.
+If x64dbg stops on an exception, the **exinfo** command lets you inspect the last exception received by the debugger, including **ExceptionCode** and **ExceptionAddress**. [[9]](https://help.x64dbg.com/en/latest/commands/analysis/exinfo.html) Save that output before continuing. The command relies on exception information received by the debugger. In this run, the process terminated without the expected exception details appearing in the log.
 
 Now what? I turned to the Windows event log. I repeated the test and opened **Event Viewer**, under **Windows Logs > Application**, to look for the crash report:
 
 > ![Event 1000, Application Error, with exception 0x80000003 in KERNEL32.DLL and fault offset 0x45180](/assets/images/enigma/eng11.png)
 
-The event identified **KERNEL32.DLL** as the faulting module, with exception code **0x80000003** and offset **0x45180**. That offset is relative to the loaded DLL's base, not the protected executable's base. In x64dbg, the entry point of **kernel32!CheckRemoteDebuggerPresent** also appeared at RVA **0x45180**:
+The event identified **KERNEL32.DLL** as the faulting module, with exception code **0x80000003** and offset **0x45180**. That offset is relative to the loaded DLL's base, not the protected executable's base. In x64dbg, the entry address of **kernel32!CheckRemoteDebuggerPresent** also appeared at RVA **0x45180**:
 
 > ![Disassembly of kernel32.CheckRemoteDebuggerPresent at address 0x7FFAD8B15180, with RVA 0x45180](/assets/images/enigma/eng12.png)
 
@@ -143,17 +143,17 @@ I continued to the **ret** shown below. By then, the API had already written **0
 
 > ![Stopped at the ret in CheckRemoteDebuggerPresent in KERNELBASE, with the BOOL at 0x23FFD08 containing 01 00 00 00 before the change](/assets/images/enigma/eng19.png)
 
-Make sure you save the pointer when entering the API: **RDX** is volatile and may hold a different value by the end of the call. [[12]](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170) Change the contents at the saved address, not the register. Keep the API's success return value: as the CheckRemoteDebuggerPresent documentation explains, the return value indicates whether the query succeeded; the answer about the debugger goes in the output **BOOL**. [[5]](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent)
+Make sure you save the pointer when entering the API: **RDX** is volatile and may hold a different value by the end of the call. [[12]](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170) Change the contents at the saved address, not the register. Keep the API's success return value: as the **CheckRemoteDebuggerPresent** documentation explains, the return value indicates whether the query succeeded; the answer about the debugger goes in the output **BOOL**. [[5]](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent)
 
 Finally, I continued execution, and the application's window opened under the debugger:
 
 > ![The test application's Notepad window open under the debugger after the patch and the change to the output BOOL](/assets/images/enigma/eng20.png)
 
-That got me past the initial check and let me open the program in this test. When enabled, the runtime check can still repeat the query. [[3]](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger) We now know where to intervene, but changing one result doesn't change the next ones: each new call needs to be handled.
+That got me past the initial check and let me open the program in this test. When enabled, the runtime check can still repeat the query. [[3]](https://www.enigmaprotector.com/en/help/manual/programoverview-checkup-antidebugger) We now know where to intervene, but changing one result doesn't affect later calls: each one needs to be handled.
 
 ## 4. Finding the program's OEP
 
-After getting around the **CheckRemoteDebuggerPresent** check, the next step was to stop at the program's **Original Entry Point (OEP)** to take the dump and then rebuild the IAT.
+After getting around the **CheckRemoteDebuggerPresent** check, the next step was to stop at the program's **Original Entry Point (OEP)** to take the dump and then rebuild the **Import Address Table (IAT)**.
 
 In this case, I had the unprotected executable, so I already knew where its OEP was. That gave me a reference for confirming which jump in the Enigma loader reached it. The useful part here is the sequence that prepares that jump: once identified, it gives us a place to stop without having to recognize the startup code of each compiler.
 
@@ -243,9 +243,9 @@ The log reported **Import Rebuild success**, but I still had to test the file ou
 
 ### Why the executable opened and then closed: the **.bss** section
 
-After rebuilding the imports, the executable opened but closed about two seconds later. I spent quite a while trying to figure out why. I came up with all sorts of crazy theories, but the difference that solved the problem was in how one section had been reconstructed: **.bss**.
+After rebuilding the imports, the executable opened but closed about two seconds later. I spent quite a while trying to figure out why. I came up with all sorts of crazy theories, but the fix came down to how one section had been reconstructed: **.bss**.
 
-The **.bss** section usually holds data with no explicit initialization, such as global variables that should start at zero. In the original file, it took up space in the image in memory but had no content stored on disk. Microsoft's PE specification describes this case: a section containing only uninitialized data has both **SizeOfRawData** and **PointerToRawData** set to zero, and its virtual space is filled with zeros when loaded. [[13]](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
+The **.bss** section usually holds data with no explicit initialization, such as global variables that should start at zero. In the original file, it occupied space in memory but had no content stored on disk. Microsoft's PE specification describes this case: a section containing only uninitialized data has both **SizeOfRawData** and **PointerToRawData** set to zero, and its virtual space is filled with zeros when loaded. [[13]](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
 
 Comparing the original file with the dump after rebuilding the imports, I found these values:
 
@@ -256,7 +256,7 @@ Comparing the original file with the dump after rebuilding the imports, I found 
 | **SizeOfRawData** | **0** | **0x4A00** |
 | **PointerToRawData** | **0** | **0x268A00** |
 
-The dump I was examining at this point had been taken after the program had already run. The **.bss** section contained state from that run: I found nonzero bytes and values such as **0x100012AE0**. With **SizeOfRawData = 0x4A00**, the file supplied that content as the section's initial data. The next time the executable opened, that region no longer started out entirely zeroed.
+The dump I was examining at this point had been taken after the program had already run. The **.bss** section contained state from that run: I found nonzero bytes and values such as **0x100012AE0**. With **SizeOfRawData = 0x4A00**, the file supplied that content as the section's initial data. On the next launch, that region no longer started out entirely zeroed.
 
 In PE-bear [[15]](https://github.com/hasherezade/pe-bear), I located the section by its RVA, **0x288000**, because its name was blank in the dump. I restored the **.bss** name and the original **VirtualSize**, and set the fields below:
 
@@ -265,7 +265,8 @@ VirtualSize      = 0x6614
 SizeOfRawData    = 0
 PointerToRawData = 0
 ```
-> ![Scylla x64 with OEP 0x1000162B0, IAT at 0x100290E3C, size 0xD88, and 425 valid imports; the log reports Import Rebuild success](/assets/images/enigma/eng28.png)
+
+> ![PE-bear showing the .bss section at RVA 0x288000, with VirtualSize 0x6614 and both raw-data fields set to zero](/assets/images/enigma/eng28.png)
 
 Restoring the name makes the section easier to identify; the size and on-disk data fields determine the behavior described here. With both raw-data fields set to zero, the captured bytes are no longer loaded as the section's initial content.
 
@@ -279,7 +280,7 @@ At this point, I'd made it past the checks described here, reached the OEP, rebu
 
 ## 6. An IDAPython script to go with it
 
-I also put together an **IDAPython script** to automate part of this workflow on **Enigma Protector x64 7.40**. It handles the observed **NtSetInformationThread** and **CheckRemoteDebuggerPresent** calls, follows the loader's final-transfer sequence to the OEP, and saves a dump with the entry point adjusted. It also tries to identify the IAT range and prints the values for Scylla when the inference has high confidence.
+I also put together an **IDAPython script** to automate part of this workflow on **Enigma Protector x64 7.40**. It handles the observed **NtSetInformationThread** and **CheckRemoteDebuggerPresent** calls, follows the loader's final-transfer sequence to the OEP, and saves a dump with the entry point adjusted. It also tries to identify the IAT range and prints the values for Scylla when the inference has high confidence. I still use Scylla to rebuild the imports.
 
 The code is available in [IDA-UnpackEnigma-7.40](https://github.com/parapapinho/IDA-UnpackEnigma-7.40).
 
