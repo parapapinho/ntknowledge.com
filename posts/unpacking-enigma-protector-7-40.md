@@ -279,11 +279,9 @@ At this point, I'd made it past the checks described here, reached the OEP, rebu
 
 ## 6. An IDAPython script to go with it
 
-I also put together an **IDAPython script for IDA 9.4** to automate part of this workflow on **Enigma Protector x64 7.40**. It handles the observed **NtSetInformationThread** and **CheckRemoteDebuggerPresent** calls, follows the loader's final-transfer sequence to the OEP, and saves a dump with the entry point adjusted. It also tries to identify the IAT range and prints the values for Scylla when the inference has high confidence.
+I also put together an **IDAPython script** to automate part of this workflow on **Enigma Protector x64 7.40**. It handles the observed **NtSetInformationThread** and **CheckRemoteDebuggerPresent** calls, follows the loader's final-transfer sequence to the OEP, and saves a dump with the entry point adjusted. It also tries to identify the IAT range and prints the values for Scylla when the inference has high confidence.
 
-The output is still a **pre-Scylla dump**: rebuilding the imports and checking the recovered executable remain part of the process. I left the manual controls and the **.bss** adjustment options documented in the README.
-
-The code is available in [IDA-UnpackEnigma-7.40](https://github.com/parapapinho/IDA-UnpackEnigma-7.40). Keep the three **.py** files together, select IDA's **Local Windows** debugger, and run **ida_enigma740_generic.py** through **File > Script file**. The README includes the full instructions and tested scope.
+The code is available in [IDA-UnpackEnigma-7.40](https://github.com/parapapinho/IDA-UnpackEnigma-7.40).
 
 ## References
 
