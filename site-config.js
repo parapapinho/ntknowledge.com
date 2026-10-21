@@ -11,7 +11,7 @@ window.siteConfig = {
     {
       title: "Unpacking Enigma Protector 7.40 Like the Old Days: Bypassing Anti-Debugging, Finding the OEP, and Rebuilding the IAT",
       slug: "unpacking-enigma-protector-7-40",
-      date: "2026-10-07",
+      date: "2026-10-20",
       path: "posts/unpacking-enigma-protector-7-40.md"
     },
     {
