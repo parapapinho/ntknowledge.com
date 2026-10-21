@@ -6,6 +6,8 @@ In 2025, Aryaka also reported the use of Enigma Protector in a campaign attribut
 
 Seeing malicious actors use it is what made me revisit Enigma and write this tutorial. Yes, I'm calling it a tutorial. When you're analyzing malware, getting past the protection can take up a good part of the work before you can even look at what the sample does. Understanding where the loader ends and the application's code begins helps you make sense of what you see in the debugger and distinguish the loader's behavior from the application's.
 
+To follow along, **[download the protected executable (ZIP)](https://raw.githubusercontent.com/parapapinho/ntknowledge.com/main/assets/teste_protectd.EXE.zip)** and try the unpacking yourself.
+
 ## 1. Preparing the executable
 
 To get started, I used Enigma x64 version 7.40.
