@@ -277,6 +277,14 @@ This problem doesn't demonstrate an intentional anti-dump technique in Enigma. I
 
 At this point, I'd made it past the checks described here, reached the OEP, rebuilt the imports, and kept the recovered executable running outside the debugger. The part that took me the longest came after the dump. Finding the OEP and recovering the IAT were important steps, but checking the initial state of the PE sections was what let me finish this case.
 
+## 6. An IDAPython script to go with it
+
+I also put together an **IDAPython script for IDA 9.4** to automate part of this workflow on **Enigma Protector x64 7.40**. It handles the observed **NtSetInformationThread** and **CheckRemoteDebuggerPresent** calls, follows the loader's final-transfer sequence to the OEP, and saves a dump with the entry point adjusted. It also tries to identify the IAT range and prints the values for Scylla when the inference has high confidence.
+
+The output is still a **pre-Scylla dump**: rebuilding the imports and checking the recovered executable remain part of the process. I left the manual controls and the **.bss** adjustment options documented in the README.
+
+The code is available in [IDA-UnpackEnigma-7.40](https://github.com/parapapinho/IDA-UnpackEnigma-7.40). Keep the three **.py** files together, select IDA's **Local Windows** debugger, and run **ida_enigma740_generic.py** through **File > Script file**. The README includes the full instructions and tested scope.
+
 ## References
 
 **[1]** [ESET — Jakub Souček. Killing me gently: Inside Gentlemen’s EDR killer framework (June 18, 2026).](https://www.welivesecurity.com/en/eset-research/killing-me-gently-inside-gentlemens-edr-killer-framework/) Use of Enigma and Themida in the Gentlemen group's tools.
